@@ -129,10 +129,10 @@ def gen_step(model_ntk, ar, device):
     print('Feature Length:', d)
 
     if ar.tgt_eps is None:
-        noise_mean_emb1 = pt.load(ar.log_dir + f'mean_emb1_{d}_{ar.seed}.pth')
+        noise_mean_emb1 = pt.load(ar.save_dir + f'mean_emb1_{d}_{ar.seed}.pth')
     else:
-        noise_mean_emb1 = pt.load(ar.log_dir + f'mean_emb1_{d}_{ar.seed}_{ar.tgt_eps}.pth')
-    model_ntk.load_state_dict(pt.load(ar.log_dir + f'model_{d}_{ar.seed}.pth', map_location=device))
+        noise_mean_emb1 = pt.load(ar.save_dir + f'mean_emb1_{d}_{ar.seed}_{ar.tgt_eps}.pth')
+    model_ntk.load_state_dict(pt.load(ar.save_dir + f'model_{d}_{ar.seed}.pth', map_location=device))
 
     """ random noise func for generators """
     if ar.data == 'cifar10':
@@ -196,8 +196,8 @@ def gen_step(model_ntk, ar, device):
                 log_gen_data(model, device, epoch, n_classes, ar.log_dir)
         if epoch % ar.scheduler_interval == 0:
             scheduler.step()
-        print('epoch # and running loss are ', [epoch, running_loss])
-        training_loss_per_epoch[epoch] = running_loss
+        # print('epoch # and running loss are ', [epoch, running_loss])
+        # training_loss_per_epoch[epoch] = running_loss
 
     """ log outputs """
     if ar.data == 'cifar10':

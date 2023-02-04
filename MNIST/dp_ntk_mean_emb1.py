@@ -42,7 +42,7 @@ def calc_mean_emb1(model_ntk, ar, device):
                                                batch_size=ar.batch_size, n_workers=2, labeled=True,
                                                test_set=False, scale_to_range=False)
         input_dim = 32 * 32 * 3
-        n_data = 50_000
+        n_data = 50000
     else:
         train_loader, test_loader, trn_data, tst_data = get_mnist_dataloaders(ar.batch_size, ar.test_batch_size,
                                                                               use_cuda=True,
@@ -89,8 +89,8 @@ def calc_mean_emb1(model_ntk, ar, device):
     print("This is the shape for dp-mint mean_emb1: ", mean_emb1.shape)
 
     """ save mean_emb1 """
-    print(ar.log_dir + f'mean_emb1_{d}_{ar.seed}.pth')
-    pt.save(mean_emb1, ar.log_dir + f'mean_emb1_{d}_{ar.seed}.pth')
+    print(ar.save_dir + f'mean_emb1_{d}_{ar.seed}.pth')
+    pt.save(mean_emb1, ar.save_dir + f'mean_emb1_{d}_{ar.seed}.pth')
 
     """ adding DP noise to sensitive data """
     for eps in [0.2, 1, 10]:
@@ -101,7 +101,7 @@ def calc_mean_emb1(model_ntk, ar, device):
         std = 2 * privacy_param['sigma'] / n_data
         noise = noise * std
         noise_mean_emb1 += noise
-        pt.save(noise_mean_emb1, ar.log_dir + f'mean_emb1_{d}_{ar.seed}_{eps}.pth')
+        pt.save(noise_mean_emb1, ar.save_dir + f'mean_emb1_{d}_{ar.seed}_{eps}.pth')
 
     """ save model """
-    pt.save(model_ntk.state_dict(), ar.log_dir + f'model_{d}_{ar.seed}.pth')
+    pt.save(model_ntk.state_dict(), ar.save_dir + f'model_{d}_{ar.seed}.pth')

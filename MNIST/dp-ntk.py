@@ -17,7 +17,7 @@ def get_args():
     parser.add_argument('--seed', type=int, default=0, help='sets random seed')
     parser.add_argument('--log-interval', type=int, default=10, help='print updates after n steps')
     parser.add_argument('--base-log-dir', type=str, default='res/',
-                        help='path where logs for all runs are stored')
+                        help='path where logs/model for all runs are stored')
     parser.add_argument('--log-dir', type=str, default=None,
                         help='override save path. constructed if None')
     parser.add_argument('--data', type=str, default='dmnist', help='cifar10, dmnist or fmnist')
@@ -25,7 +25,7 @@ def get_args():
                         help='whether or not to calculate the true data mean embedding with DP levels 0.2, 1, and 10')
 
     # OPTIMIZATION
-    parser.add_argument('--batch-size', '-bs', type=int, default=500)
+    parser.add_argument('--batch-size', '-bs', type=int, default=5000)
     parser.add_argument('--test-batch-size', '-tbs', type=int, default=100)
     parser.add_argument('--gen-batch-size', '-gbs', type=int, default=100)
     parser.add_argument('--n_iter', type=int, default=2000)
@@ -37,7 +37,7 @@ def get_args():
     # MODEL DEFINITION
     parser.add_argument('--d-code', '-dcode', type=int, default=5, help='random code dimensionality')
     parser.add_argument('--gen-spec', type=str, default="200,200")
-    parser.add_argument('--ntk-width', type=int, default=500, help='width of NTK for apprixmate mmd')
+    parser.add_argument('--ntk-width', type=int, default=800, help='width of NTK for approximate mmd')
 
     # DP SPEC
     parser.add_argument('--tgt-eps', type=float, default=None, help='privacy parameter - finds noise')
@@ -50,11 +50,15 @@ def get_args():
 
 
 def preprocess_args(ar):
+    assert ar.data in ['cifar10', 'dmnist', 'fmnist']
     if ar.log_dir is None:
-        assert ar.data in ['cifar10', 'dmnist', 'fmnist']
         ar.log_dir = ar.base_log_dir + ar.data + '/'
 
+    ar.save_dir = 'res/' + ar.data + '/models/'  # save_dir to save model and mean_emb1
+
     os.makedirs(ar.log_dir, exist_ok=True)
+
+    os.makedirs(ar.save_dir, exist_ok=True)
 
     if ar.seed is None:
         ar.seed = np.random.randint(0, 1000)
