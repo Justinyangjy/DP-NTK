@@ -93,7 +93,7 @@ def calc_mean_emb1(model_ntk, ar, device):
     pt.save(mean_emb1, ar.save_dir + f'mean_emb1_{d}_{ar.seed}.pth')
 
     """ adding DP noise to sensitive data """
-    for eps in [0.2, 1, 10]:
+    for eps in [0.2, 1.0, 10.0]:
         noise_mean_emb1 = mean_emb1
         privacy_param = privacy_calibrator.gaussian_mech(eps, ar.tgt_delta, k=1)
         print(f'eps,delta = ({eps},{ar.tgt_delta}) ==> Noise level sigma=', privacy_param['sigma'])
