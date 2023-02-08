@@ -44,35 +44,6 @@ def synthesize_mnist_with_uniform_labels(gen, device, gen_batch_size=1000, n_dat
     return pt.cat(data_list, dim=0).cpu().numpy(), pt.cat(labels_list, dim=0).cpu().numpy()
 
 
-def get_code_fun(device, n_labels, d_code):
-    def get_code(batch_size, labels=None):
-        return_labels = False
-        if labels is None:  # sample labels
-            return_labels = True
-            labels = pt.randint(n_labels, (batch_size, 1), device=device)
-        code = pt.randn(batch_size, d_code, device=device)
-        gen_one_hots = pt.zeros(batch_size, n_labels, device=device)
-        gen_one_hots.scatter_(1, labels, 1)
-        code = pt.cat([code, gen_one_hots.to(pt.float32)], dim=1)[:, :, None, None]
-        if return_labels:
-            return code, gen_one_hots
-        else:
-            return code
-
-    return get_code
-
-
-def log_step(step, loss, gen, fixed_noise, exp_name, log_dir):
-    print(f'Train step: {step} \tLoss: {loss.item():.6f}')
-    with pt.no_grad():
-        fake = gen(fixed_noise).detach()
-    img_dir = os.path.join(log_dir, 'images')
-    os.makedirs(img_dir, exist_ok=True)
-    img_path = os.path.join(img_dir, f"{exp_name.replace('/', '_', 999)}_it_{step + 1}.png")
-
-    vutils.save_image(fake.data[:100], img_path, normalize=True, nrow=10)
-
-
 def synthesize_data_with_uniform_labels(gen, device, code_fun, gen_batch_size=1000, n_data=60000,
                                         n_labels=10):
     gen.eval()
@@ -99,23 +70,13 @@ def gen_step(model_ntk, ar, device):
     pt.manual_seed(ar.seed)
 
     """ setup """
-    if ar.data == 'cifar10':
-        input_dim = 32 * 32 * 3
-        image_size = 32
-        n_data = 50_000
-    else:
-        input_dim = 784
-        image_size = 28
-        n_data = 60_000
+    input_dim = 784
+    image_size = 28
+    n_data = 60_000
     n_classes = 10
 
     print('data: ', ar.data)
-    if ar.data == 'cifar10':
-        model = ResnetG(ar.d_code + n_classes, nc=3, ndf=64, image_size=32,
-                        adapt_filter_size=True,
-                        use_conv_at_skip_conn=False).to(device)
-    else:
-        model = ConvCondGen(ar.d_code, ar.gen_spec, n_classes, '16,8', '5,5').to(device)
+    model = ConvCondGen(ar.d_code, ar.gen_spec, n_classes, '16,8', '5,5').to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=ar.lr)
     scheduler = StepLR(optimizer, step_size=1, gamma=ar.lr_decay)
@@ -135,10 +96,7 @@ def gen_step(model_ntk, ar, device):
     model_ntk.load_state_dict(pt.load(ar.save_dir + f'model_{d}_{ar.seed}.pth', map_location=device))
 
     """ random noise func for generators """
-    if ar.data == 'cifar10':
-        code_fun = get_code_fun(device, n_classes, ar.d_code)
-    else:
-        code_fun = model.get_code
+    code_fun = model.get_code
 
     """ generate 100 samples for output log """
     fixed_labels = pt.repeat_interleave(pt.arange(10, device=device), 10)
@@ -190,45 +148,24 @@ def gen_step(model_ntk, ar, device):
         if running_loss <= 1e-4:
             break
         if (epoch + 1) % ar.log_interval == 0:
-            if ar.data == 'cifar10':
-                log_step(epoch, loss, model, fixed_noise, 'test', ar.log_dir)
-            else:
-                log_gen_data(model, device, epoch, n_classes, ar.log_dir)
+            log_gen_data(model, device, epoch, n_classes, ar.log_dir)
             print('epoch # and running loss are ', [epoch, running_loss])
             training_loss_per_epoch[epoch] = running_loss
         if epoch % ar.scheduler_interval == 0:
             scheduler.step()
 
     """ log outputs """
-    if ar.data == 'cifar10':
-        # save trained model and data
-        pt.save(model.state_dict(), ar.log_dir + 'gen.pt')
+    """plot generation """
+    log_gen_data(model, device, ar.n_iter, n_classes, ar.log_dir)
 
-        data_file = os.path.join(ar.log_dir, 'gen_data.npz')
-        syn_data_size = 5000
-        syn_data, syn_labels = synthesize_data_with_uniform_labels(model, device, code_fun,
-                                                                   ar.gen_batch_size, syn_data_size,
-                                                                   n_classes)
+    """evaluate the model"""
+    pt.save(model.state_dict(), ar.log_dir + 'gen.pt')
+    syn_data, syn_labels = synthesize_mnist_with_uniform_labels(model, device)
+    np.savez(ar.log_dir + 'synthetic_mnist', data=syn_data, labels=syn_labels)
+    final_score = test_gen_data(ar.log_dir, ar.data, data_base_dir="", subsample=0.1, custom_keys="logistic_reg",
+                                data_from_torch=True)
+    log_final_score(ar.log_dir, final_score)
 
-        np.savez(data_file, x=syn_data, y=syn_labels)
-
-        fid_score = get_fid_scores(data_file, 'cifar10', device, syn_data_size,
-                                   image_size, center_crop_size=32, use_autoencoder=False,
-                                   base_data_dir='../data', batch_size=50)
-        print(f'fid={fid_score}')
-        np.save(os.path.join(ar.log_dir, 'fid.npy'), fid_score)
-    else:
-        """plot generation """
-        log_gen_data(model, device, ar.n_iter, n_classes, ar.log_dir)
-
-        """evaluate the model"""
-        pt.save(model.state_dict(), ar.log_dir + 'gen.pt')
-        syn_data, syn_labels = synthesize_mnist_with_uniform_labels(model, device)
-        np.savez(ar.log_dir + 'synthetic_mnist', data=syn_data, labels=syn_labels)
-        final_score = test_gen_data(ar.log_dir, ar.data, data_base_dir="", subsample=0.1, custom_keys="logistic_reg",
-                                    data_from_torch=True)
-        log_final_score(ar.log_dir, final_score)
-
-        final_score = test_gen_data(ar.log_dir, ar.data, data_base_dir="", subsample=0.1, custom_keys="mlp",
-                                    data_from_torch=True)
-        log_final_score(ar.log_dir, final_score)
+    final_score = test_gen_data(ar.log_dir, ar.data, data_base_dir="", subsample=0.1, custom_keys="mlp",
+                                data_from_torch=True)
+    log_final_score(ar.log_dir, final_score)

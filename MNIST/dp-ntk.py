@@ -20,7 +20,7 @@ def get_args():
                         help='path where logs/model for all runs are stored')
     parser.add_argument('--log-dir', type=str, default=None,
                         help='override save path. constructed if None')
-    parser.add_argument('--data', type=str, default='dmnist', help='cifar10, dmnist or fmnist')
+    parser.add_argument('--data', type=str, default='dmnist', help='dmnist or fmnist')
     parser.add_argument('--calc-data', type=bool, default=True,
                         help='whether or not to calculate the true data mean embedding with DP levels 0.2, 1, and 10')
 
@@ -50,7 +50,7 @@ def get_args():
 
 
 def preprocess_args(ar):
-    assert ar.data in ['cifar10', 'dmnist', 'fmnist']
+    assert ar.data in ['dmnist', 'fmnist']
     if ar.log_dir is None:
         ar.log_dir = ar.base_log_dir + ar.data + '/'
 
@@ -70,42 +70,16 @@ def main():
     pt.manual_seed(ar.seed)
 
     """ load MNIST, FashionMNIST or cifar10 """
-    if ar.data == 'cifar10':
-        input_dim = 32 * 32 * 3
-        n_data = 50_000
-        n_classes = 10
-    else:
-        input_dim = 784
-        n_data = 60_000
-        n_classes = 10
-        eval_func = None
+    input_dim = 784
+    n_data = 60_000
+    n_classes = 10
+    eval_func = None
 
     device = 'cuda' if pt.cuda.is_available() else 'cpu'
     print('device is', device)
 
-    # model_ntk = NTK_TL(input_size=input_dim, hidden_size_1=10, hidden_size_2=ar.ntk_width, output_size=n_classes)
-    # model_ntk = ResNet(input_size=input_dim, hidden_size_1=ar.ntk_width, output_size=n_classes)
     model_ntk = NTK(input_size=input_dim, hidden_size_1=ar.ntk_width, output_size=n_classes)
-    # model_ntk = NTK(input_size=input_dim, hidden_size_1=ar.ntk_width, output_size=n_classes)
-    # model_ntk = CNTK()
-    # model_ntk = ResNet()
-    # model_ntk = model_ntk.net
-    # model_ntk_pretrain = Net_eNTK_pretrain()
-    # model_ntk = get_ffcv_model(device, num_class=10)
-    # model_ntk = pt.load('model_cNTK.pth')
-    # model_ntk = pt.load('model_ResNet9_imagenet.pth')
-    # model_ntk_pretrain.load_state_dict(pt.load('model_cNTK_cifar.pth', map_location=device))
-    # model_ntk.load_state_dict(pt.load('model_cNTK_cifar.pth', map_location=device))
-
-    # model_ntk.fc1 = nn.Linear(4096, 1)
-    # model_ntk.load_parameters(path='model_cNTK.pth')
-    model_ntk.to(device)
     model_ntk.eval()
-    # model_ntk_pretrain.to(device)
-    # output_weights = model_ntk_pretrain.fc1.weight
-    # print(output_weights[0,:])
-    # model_ntk.fc1.weight = torch.nn.Parameter(output_weights[0,:])
-    # print(model_ntk.fc1.weight)
 
     if ar.calc_data:
         print('computing mean embedding of true data')

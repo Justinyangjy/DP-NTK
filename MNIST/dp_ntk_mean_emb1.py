@@ -36,22 +36,15 @@ def calc_mean_emb1(model_ntk, ar, device):
     random.seed(ar.seed)
     pt.manual_seed(ar.seed)
 
-    """ load MNIST, FashionMNIST or cifar10 """
-    if ar.data == 'cifar10':
-        train_loader, n_classes = load_cifar10(image_size=32, dataroot='./data/', use_autoencoder=False,
-                                               batch_size=ar.batch_size, n_workers=2, labeled=True,
-                                               test_set=False, scale_to_range=False)
-        input_dim = 32 * 32 * 3
-        n_data = 50_000
-    else:
-        train_loader, test_loader, trn_data, tst_data = get_mnist_dataloaders(ar.batch_size, ar.test_batch_size,
-                                                                              use_cuda=True,
-                                                                              dataset=ar.data, normalize=False,
-                                                                              return_datasets=True)
-        input_dim = 784
-        n_data = 60_000
-        n_classes = 10
-        eval_func = None
+    """ load MNIST, FashionMNIST """
+    train_loader, test_loader, trn_data, tst_data = get_mnist_dataloaders(ar.batch_size, ar.test_batch_size,
+                                                                          use_cuda=True,
+                                                                          dataset=ar.data, normalize=False,
+                                                                          return_datasets=True)
+    input_dim = 784
+    n_data = 60_000
+    n_classes = 10
+    eval_func = None
 
     """ initialize the variables"""
 
@@ -69,10 +62,7 @@ def calc_mean_emb1(model_ntk, ar, device):
             # model_ntk.fc1.weight = torch.nn.Parameter(output_weights[y_train[i],:][None,:])
 
             mean_v_samp = pt.Tensor([]).to(device)  # sample mean vector init
-            if ar.data == 'cifar10':
-                f_x = model_ntk(data[i][None, :, :, :])  # 1 input, dimensions need tweaking
-            else:
-                f_x = model_ntk(data[i])
+            f_x = model_ntk(data[i])
 
             """ get NTK features """
             f_idx_grad = pt.autograd.grad(f_x, model_ntk.parameters(),
