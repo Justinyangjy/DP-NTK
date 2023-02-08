@@ -15,7 +15,7 @@ def get_args():
 
     # BASICS
     parser.add_argument('--seed', type=int, default=0, help='sets random seed')
-    parser.add_argument('--log-interval', type=int, default=10, help='print updates after n steps')
+    parser.add_argument('--log-interval', type=int, default=100, help='print updates after n steps')
     parser.add_argument('--base-log-dir', type=str, default='res/',
                         help='path where logs/model for all runs are stored')
     parser.add_argument('--log-dir', type=str, default=None,
@@ -25,7 +25,7 @@ def get_args():
                         help='whether or not to calculate the true data mean embedding with DP levels 0.2, 1, and 10')
 
     # OPTIMIZATION
-    parser.add_argument('--batch-size', '-bs', type=int, default=5000)
+    parser.add_argument('--batch-size', '-bs', type=int, default=500)
     parser.add_argument('--test-batch-size', '-tbs', type=int, default=100)
     parser.add_argument('--gen-batch-size', '-gbs', type=int, default=100)
     parser.add_argument('--n_iter', type=int, default=2000)
@@ -37,10 +37,10 @@ def get_args():
     # MODEL DEFINITION
     parser.add_argument('--d-code', '-dcode', type=int, default=5, help='random code dimensionality')
     parser.add_argument('--gen-spec', type=str, default="200,200")
-    parser.add_argument('--ntk-width', type=int, default=800, help='width of NTK for approximate mmd')
+    parser.add_argument('--ntk-width', type=int, default=800, help='width of NTK for apprixmate mmd')
 
     # DP SPEC
-    parser.add_argument('--tgt-eps', type=float, default=None, help='privacy parameter - finds noise')
+    parser.add_argument('--tgt-eps', type=float, default=10, help='privacy parameter - finds noise')
     parser.add_argument('--tgt-delta', type=float, default=1e-5, help='privacy parameter - finds noise')
 
     ar = parser.parse_args()
@@ -54,7 +54,7 @@ def preprocess_args(ar):
     if ar.log_dir is None:
         ar.log_dir = ar.base_log_dir + ar.data + '/'
 
-    ar.save_dir = 'res/' + ar.data + '/models/'  # save_dir to save model and mean_emb1
+    ar.save_dir = ar.log_dir + 'models/'  # save_dir to save model and mean_emb1
 
     os.makedirs(ar.log_dir, exist_ok=True)
 
@@ -91,9 +91,9 @@ def main():
     # model_ntk = ResNet()
     # model_ntk = model_ntk.net
     # model_ntk_pretrain = Net_eNTK_pretrain()
-    # model_ntk = Net_eNTK()
+    # model_ntk = get_ffcv_model(device, num_class=10)
     # model_ntk = pt.load('model_cNTK.pth')
-    # model_ntk = pt.load('model_ResNet9.pth')
+    # model_ntk = pt.load('model_ResNet9_imagenet.pth')
     # model_ntk_pretrain.load_state_dict(pt.load('model_cNTK_cifar.pth', map_location=device))
     # model_ntk.load_state_dict(pt.load('model_cNTK_cifar.pth', map_location=device))
 

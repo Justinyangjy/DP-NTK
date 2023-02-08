@@ -189,15 +189,15 @@ def gen_step(model_ntk, ar, device):
         running_loss += loss.item()
         if running_loss <= 1e-4:
             break
-        if epoch % 100 == 0:
+        if (epoch + 1) % ar.log_interval == 0:
             if ar.data == 'cifar10':
                 log_step(epoch, loss, model, fixed_noise, 'test', ar.log_dir)
             else:
                 log_gen_data(model, device, epoch, n_classes, ar.log_dir)
+            print('epoch # and running loss are ', [epoch, running_loss])
+            training_loss_per_epoch[epoch] = running_loss
         if epoch % ar.scheduler_interval == 0:
             scheduler.step()
-        # print('epoch # and running loss are ', [epoch, running_loss])
-        # training_loss_per_epoch[epoch] = running_loss
 
     """ log outputs """
     if ar.data == 'cifar10':
