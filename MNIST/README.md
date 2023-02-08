@@ -41,4 +41,4 @@ non-DP
 `python3 dp_ntk.py  --dataset fmnist --n_iter 2000 -lr 1e-2 -bs 5000 --ntk-width 800 --seed 1`
 
 DP
-`python3 dp_ntk.py  --dataset fmnist --n_iter 2000 -lr 1e-2 -bs 5000 --ntk-width 800 --seed 1`
+`python3 dp_ntk.py  --dataset fmnist --n_iter 2000 -lr 1e-2 -bs 5000 --ntk-width 800 --seed 1 --tgt-eps 10`
