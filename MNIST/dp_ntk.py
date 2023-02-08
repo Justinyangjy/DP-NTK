@@ -25,7 +25,7 @@ def get_args():
                         help='whether or not to calculate the true data mean embedding with DP levels 0.2, 1, and 10')
 
     # OPTIMIZATION
-    parser.add_argument('--batch-size', '-bs', type=int, default=500)
+    parser.add_argument('--batch-size', '-bs', type=int, default=5000)
     parser.add_argument('--test-batch-size', '-tbs', type=int, default=100)
     parser.add_argument('--gen-batch-size', '-gbs', type=int, default=100)
     parser.add_argument('--n_iter', type=int, default=2000)
@@ -40,7 +40,7 @@ def get_args():
     parser.add_argument('--ntk-width', type=int, default=800, help='width of NTK for apprixmate mmd')
 
     # DP SPEC
-    parser.add_argument('--tgt-eps', type=float, default=10, help='privacy parameter - finds noise')
+    parser.add_argument('--tgt-eps', type=float, default=None, help='privacy parameter - finds noise')
     parser.add_argument('--tgt-delta', type=float, default=1e-5, help='privacy parameter - finds noise')
 
     ar = parser.parse_args()
@@ -69,7 +69,7 @@ def main():
     random.seed(ar.seed)
     pt.manual_seed(ar.seed)
 
-    """ load MNIST, FashionMNIST or cifar10 """
+    """ load MNIST or FashionMNIST """
     input_dim = 784
     n_data = 60_000
     n_classes = 10
@@ -79,6 +79,7 @@ def main():
     print('device is', device)
 
     model_ntk = NTK(input_size=input_dim, hidden_size_1=ar.ntk_width, output_size=n_classes)
+    model_ntk.to(device)
     model_ntk.eval()
 
     if ar.calc_data:

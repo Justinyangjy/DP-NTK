@@ -1,17 +1,7 @@
-import argparse
-# from models.generators import ResnetG
-# from synth_data_2d import plot_data
-# from models.resnet9_ntk import ResNet
-import os
 import random
-
-import numpy as np
 import torch as pt
-
-# from util import plot_mnist_batch, log_final_score
-from data_loading import load_cifar10, get_mnist_dataloaders
-from models.ntk import *
 from autodp import privacy_calibrator
+from data_loading import get_mnist_dataloaders
 
 
 def synthesize_mnist_with_uniform_labels(gen, device, gen_batch_size=1000, n_data=60000, n_labels=10):
@@ -66,7 +56,7 @@ def calc_mean_emb1(model_ntk, ar, device):
 
             """ get NTK features """
             f_idx_grad = pt.autograd.grad(f_x, model_ntk.parameters(),
-                                             grad_outputs=f_x.data.new(f_x.shape).fill_(1))
+                                          grad_outputs=f_x.data.new(f_x.shape).fill_(1))
             for g in f_idx_grad:
                 mean_v_samp = pt.cat((mean_v_samp, g.flatten()))
             # mean_v_samp = mean_v_samp[:-1]

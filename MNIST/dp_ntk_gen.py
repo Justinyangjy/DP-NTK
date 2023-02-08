@@ -1,18 +1,11 @@
-import os
 import random
 
 import numpy as np
 import torch as pt
 import torch.optim as optim
-# from models.resnet9_ntk import ResNet
-from autodp import privacy_calibrator
 from torch.optim.lr_scheduler import StepLR
-from torchvision import utils as vutils
 
-from fid_eval import get_fid_scores
-# from models_gen import FCCondGen, ConvCondGen
-from models.generators import ResnetG, ConvCondGen
-from models.ntk import *
+from models.generators import ConvCondGen
 from synth_data_benchmark import test_gen_data
 from util import plot_mnist_batch, log_final_score
 
@@ -120,10 +113,7 @@ def gen_step(model_ntk, ar, device):
             """ manually set the weight if needed """
             # model_ntk.fc1.weight = torch.nn.Parameter(output_weights[gen_labels_numerical[idx], :][None, :])
             mean_v_samp = pt.Tensor([]).to(device)  # sample mean vector init
-            if ar.data == 'cifar10':
-                f_x = model_ntk(gen_samples[idx][None, :, :, :])  # 1 input, dimensions need tweaking
-            else:
-                f_x = model_ntk(gen_samples[idx][None, :])
+            f_x = model_ntk(gen_samples[idx][None, :])
 
             """ get NTK features """
             f_idx_grad = pt.autograd.grad(f_x, model_ntk.parameters(),
@@ -140,13 +130,10 @@ def gen_step(model_ntk, ar, device):
 
         """ calculate loss """
         loss = pt.norm(noise_mean_emb1 - mean_emb2, p=2) ** 2
-        # loss = torch.sum(torch.abs(noise_mean_emb1 - mean_emb2))
         loss.backward()
         optimizer.step()
 
         running_loss += loss.item()
-        if running_loss <= 1e-4:
-            break
         if (epoch + 1) % ar.log_interval == 0:
             log_gen_data(model, device, epoch, n_classes, ar.log_dir)
             print('epoch # and running loss are ', [epoch, running_loss])
