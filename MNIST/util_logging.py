@@ -5,8 +5,6 @@ import torch as pt
 import numpy as np
 from torchvision import utils as vutils
 from torchvision import datasets
-# from downstream_eval import synth_to_real_test
-# from fid_eval import get_fid_scores
 from synth_data_benchmark import prep_models, model_test_run
 
 LOG = colorlog.getLogger(__name__)
@@ -137,49 +135,6 @@ def delayed_log(level, message):
     log_actions = {'debug': LOG.debug, 'info': LOG.info, 'warning': LOG.warning, 'error': LOG.error}
     assert level in log_actions
     log_actions[level](message)
-
-
-# def log_synth_data_eval(net_gen, writer, step, noise_maker, device, dataset, synth_dataset_size,
-#                         batch_size, log_dir, n_classes, fid_dataset_size, image_size,
-#                         center_crop_size, use_autoencoder, final_step):
-#     if final_step:
-#         syn_data_file_name = f'synth_data'
-#         fid_file_name = f'fid'
-#         acc_file_name = 'accuracies'
-#     else:
-#         syn_data_file_name = f'synth_data_it{step + 1}'
-#         fid_file_name = f'fid_it{step + 1}'
-#         acc_file_name = f'accuracies_it{step + 1}'
-#
-#     LOG.info(f'generating synthetic dataset')
-#     # syn_data_file_name = f'synth_data_it{step + 1}'
-#     syn_data_file = create_synth_dataset(synth_dataset_size, net_gen, batch_size,
-#                                          noise_maker, device, save_dir=log_dir,
-#                                          file_name=syn_data_file_name, n_classes=n_classes)
-#
-#     if dataset in {'cifar10', 'celeba', 'lsun'}:  # skip for mnist
-#         LOG.info(f'FID eval')
-#         fid_score = get_fid_scores(syn_data_file, dataset, device, fid_dataset_size,
-#                                    image_size, center_crop_size, use_autoencoder,
-#                                    batch_size=batch_size)
-#         np.save(os.path.join(log_dir, fid_file_name), fid_score)
-#         if writer is not None:
-#             writer.add_scalar('eval/FID', fid_score, global_step=step)
-#
-#     if n_classes is not None:
-#         LOG.info(f'classifier eval')
-#         if dataset == 'cifar10':
-#             test_acc, train_acc = synth_to_real_test(device, syn_data_file)
-#             np.savez(os.path.join(log_dir, acc_file_name),
-#                      test_acc=test_acc, train_acc=train_acc)
-#             if writer is not None:
-#                 writer.add_scalar('eval/test_acc', test_acc, global_step=step)
-#                 writer.add_scalar('eval/train_acc', train_acc, global_step=step)
-#             LOG.info(f'train accuracy: {train_acc}, test accuracy: {test_acc}')
-#         elif dataset in {'dmnist', 'fmnist'}:
-#             mnist_synth_to_real_test(dataset, syn_data_file, writer, log_dir, acc_file_name, step)
-#         else:
-#             raise ValueError
 
 
 def create_synth_dataset(n_samples, net_gen, batch_size, noise_maker, device, data_format='array',
