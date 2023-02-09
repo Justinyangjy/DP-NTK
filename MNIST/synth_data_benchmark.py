@@ -236,9 +236,6 @@ def test_gen_data(data_log_name, data_key, data_base_dir='logs/gen/', log_result
     if data_dir is None:
         data_dir = os.path.join(data_base_dir, data_log_name)
 
-    if data_base_dir == '../dp_mehp/logs/gen/':  # account for naming inconsistency
-        data_dir = os.path.join(data_dir, f'{data_key}/')
-
     log_save_dir = os.path.join(data_dir, 'synth_eval/')
 
     data_path = os.path.join(data_dir, 'synthetic_mnist.npz')
