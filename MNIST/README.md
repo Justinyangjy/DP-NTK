@@ -1,4 +1,5 @@
-# DP-NTK code
+# DP-NTK code for MNIST/FashionMNIST
+For celebA and cifar10 and tabular experiments, please refer to the `IMAGE&TAB` folder.
 
 ## code structure
 - `models/`
