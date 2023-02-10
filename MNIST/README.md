@@ -1,6 +1,9 @@
 # DP-NTK code for MNIST/FashionMNIST
 For celebA and cifar10 and tabular experiments, please refer to the `IMAGE&TAB` folder.
 
+scripts `models/generators.py`, `data_loading.py`, `sythn_data_benchmark.py`, `util.py` (named `aux.py` originally),
+the first two functions of `dp_ntk_gen.py` are taken from the repository of [DP-MERF](https://github.com/frhrdr/dp-merf/tree/main/code_balanced):
+
 ## code structure
 - `models/`
   - `ntk.py` gives access to all NTK networks used in the code.
