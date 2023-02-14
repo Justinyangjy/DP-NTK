@@ -38,22 +38,13 @@ def calc_mean_emb1(model_ntk, ar, device):
         input_dim = 32 * 32 * 3
         n_data = 50_000
         n_classes = 1
-    elif ar.data == 'celeba':
+    else:
         train_loader, _ = load_dataset('celeba', image_size=32, center_crop_size=32, dataroot='../data/',
                                        use_autoencoder=False, batch_size=100,
                                        n_workers=2, labeled=False, test_set=False)
         input_dim = 32 * 32 * 3
         n_data = 202_599
         n_classes = 1
-    else:
-        train_loader, test_loader, trn_data, tst_data = get_mnist_dataloaders(ar.batch_size, ar.test_batch_size,
-                                                                              use_cuda=True,
-                                                                              dataset=ar.data, normalize=False,
-                                                                              return_datasets=True)
-        input_dim = 784
-        n_data = 60_000
-        n_classes = 10
-        eval_func = None
 
     """ initialize the variables"""
 
@@ -78,12 +69,7 @@ def calc_mean_emb1(model_ntk, ar, device):
             # model_ntk.fc1.weight = torch.nn.Parameter(output_weights[y_train[i],:][None,:])
 
             mean_v_samp = torch.Tensor([]).to(device)  # sample mean vector init
-            if ar.data == 'cifar10':
-                f_x = model_ntk(data[i][None, :, :, :])  # 1 input, dimensions need tweaking
-            elif ar.data == 'celeba':
-                f_x = model_ntk(data[i][None, :, :, :])
-            else:
-                f_x = model_ntk(data[i])
+            f_x = model_ntk(data[i][None, :, :, :])
 
             """ get NTK features """
             f_idx_grad = torch.autograd.grad(f_x, model_ntk.parameters(),
