@@ -9,16 +9,18 @@ from autodp import privacy_calibrator
 from torch.optim.lr_scheduler import StepLR
 from torchvision import utils as vutils
 
+from all_aux_tab import test_models
 from fid_eval import get_fid_scores
 # from models_gen import FCCondGen, ConvCondGen
-from models.generators import ResnetG, ConvCondGen, Generative_Model_homogeneous_data, Generative_Model_heterogeneous_data
+from models.generators import ResnetG, ConvCondGen, Generative_Model_homogeneous_data, \
+    Generative_Model_heterogeneous_data
 from models.ntk import *
 from synth_data_benchmark import test_gen_data
 from util import plot_mnist_batch, log_final_score
-from all_aux_tab import test_models
 
 heterogeneous_datasets = ["adult", "census", "cervical", "intrusion", "covtype"]
 homogeneous_datasets = ["credit", "isolet", "epileptic"]
+
 
 def log_gen_data(gen, device, epoch, n_labels, log_dir):
     ordered_labels = pt.repeat_interleave(pt.arange(n_labels), n_labels)[:, None].to(device)
@@ -64,12 +66,15 @@ def get_code_fun(device, n_labels, d_code):
 
     return get_code
 
-def get_code_tab_fun(device, batch_size, d_code, labels_distribution):
-    label_input = torch.multinomial(torch.Tensor(labels_distribution), batch_size, replacement=True).type(torch.FloatTensor)
 
-    label_input = torch.cat([label_input, torch.arange(len(labels_distribution), out=torch.FloatTensor())])  # to avoid no labels
-    #label_input = label_input.transpose_(0, 1)
-    #label_input = label_input.squeeze()
+def get_code_tab_fun(device, batch_size, d_code, labels_distribution):
+    label_input = torch.multinomial(torch.Tensor(labels_distribution), batch_size, replacement=True).type(
+        torch.FloatTensor)
+
+    label_input = torch.cat(
+        [label_input, torch.arange(len(labels_distribution), out=torch.FloatTensor())])  # to avoid no labels
+    # label_input = label_input.transpose_(0, 1)
+    # label_input = label_input.squeeze()
     label_input = label_input.to(device)
 
     # (2) generate corresponding features
@@ -110,10 +115,9 @@ def synthesize_data_with_uniform_labels(gen, device, code_fun, gen_batch_size=10
             data_list.append(gen_samples)
     return pt.cat(data_list, dim=0).cpu().numpy(), pt.cat(labels_list, dim=0).cpu().numpy()
 
-def synthesize_data_tab(ar, model, data_name, n, input_size, num_numerical_inputs, labels_distribution, n_classes, device):
 
-
-
+def synthesize_data_tab(ar, model, data_name, n, input_size, num_numerical_inputs, labels_distribution, n_classes,
+                        device):
     """ Once the training step is over, we produce 60K samples and test on downstream tasks """
     """ now we save synthetic data of size 60K and test them on logistic regression """
     #######################################################################33
@@ -121,7 +125,8 @@ def synthesize_data_tab(ar, model, data_name, n, input_size, num_numerical_input
 
         """ draw final data samples """
 
-        label_input = torch.multinomial(torch.Tensor([labels_distribution]), n, replacement=True).type(torch.FloatTensor)
+        label_input = torch.multinomial(torch.Tensor([labels_distribution]), n, replacement=True).type(
+            torch.FloatTensor)
         label_input = label_input.transpose_(0, 1)
         label_input = label_input.to(device)
 
@@ -185,18 +190,13 @@ def gen_step(model_ntk, ar, device, n_train, labels_distribution=None, test_data
     pt.manual_seed(ar.seed)
 
     """ setup """
-    tab_datasets = ["adult", "census", "cervical", "credit", "isolet", "epileptic", "intrusion", "covtype"]
+    # tab_datasets = ["adult", "census", "cervical", "credit", "isolet", "epileptic", "intrusion", "covtype"]
     if ar.data == 'cifar10':
         input_dim = 32 * 32 * 3
         image_size = 32
         n_data = 50_000
         n_classes = 10
-    elif "mnist" in ar.data:
-        input_dim = 784
-        image_size = 28
-        n_data = 60_000
-        n_classes = 10
-    elif ar.data in tab_datasets:
+    else:
         n_data = n_train
         input_dim = test_data.shape[1]
         n_classes = len(set(test_labels))
@@ -207,26 +207,28 @@ def gen_step(model_ntk, ar, device, n_train, labels_distribution=None, test_data
         model = ResnetG(ar.d_code + n_classes, nc=3, ndf=64, image_size=32,
                         adapt_filter_size=True,
                         use_conv_at_skip_conn=False).to(device)
-    elif "mnist" in ar.data:
-        model = ConvCondGen(ar.d_code, ar.gen_spec, n_classes, '16,8', '5,5').to(device)
     else:
-        #batch_size = np.int(np.round(batch_rate * n))
+        # batch_size = np.int(np.round(batch_rate * n))
         input_size = ar.d_code
         hidden_size_1 = 4 * input_dim
         hidden_size_2 = 2 * input_dim
 
         if ar.data in heterogeneous_datasets:
-            categories_num={"adult": [8,6], "census": [33,7], "cervical": [23,11], "covtype": [44,10], "intrusion": [36,4]} # cat, num
+            categories_num = {"adult": [8, 6], "census": [33, 7], "cervical": [23, 11], "covtype": [44, 10],
+                              "intrusion": [36, 4]}  # cat, num
             num_categorical_inputs = categories_num[ar.data][0]
             num_numerical_inputs = categories_num[ar.data][1]
             output_size = num_categorical_inputs + num_numerical_inputs
-            model = Generative_Model_heterogeneous_data(input_size=input_size,hidden_size_1=hidden_size_1,hidden_size_2=hidden_size_2,output_size=output_size,num_categorical_inputs=num_categorical_inputs,num_numerical_inputs=num_numerical_inputs).to(device)
+            model = Generative_Model_heterogeneous_data(input_size=input_size, hidden_size_1=hidden_size_1,
+                                                        hidden_size_2=hidden_size_2, output_size=output_size,
+                                                        num_categorical_inputs=num_categorical_inputs,
+                                                        num_numerical_inputs=num_numerical_inputs).to(device)
         elif ar.data in homogeneous_datasets:
             num_numerical_inputs = input_dim
-            model = Generative_Model_homogeneous_data(input_size=input_size, hidden_size_1=hidden_size_1,hidden_size_2=hidden_size_2, output_size=input_dim, dataset=ar.data).to(device) #input_dim of data is output for generated data
-
-
-
+            model = Generative_Model_homogeneous_data(input_size=input_size, hidden_size_1=hidden_size_1,
+                                                      hidden_size_2=hidden_size_2, output_size=input_dim,
+                                                      dataset=ar.data).to(
+                device)  # input_dim of data is output for generated data
 
     optimizer = optim.Adam(model.parameters(), lr=ar.lr)
     scheduler = StepLR(optimizer, step_size=1, gamma=ar.lr_decay)
@@ -236,7 +238,7 @@ def gen_step(model_ntk, ar, device, n_train, labels_distribution=None, test_data
     mean_v_samp = torch.Tensor([]).to(device)
     for p in model_ntk.parameters():
         mean_v_samp = torch.cat((mean_v_samp, p.flatten()))
-    d = len(mean_v_samp) - 1
+    d = len(mean_v_samp)
     print('Feature Length:', d)
     mean_emb1 = pt.load(ar.log_dir + 'mean_emb1_' + str(d) + '.pth')
     model_ntk.load_state_dict(pt.load(ar.log_dir + 'model_' + str(d) + '.pth', map_location=device))
@@ -244,7 +246,7 @@ def gen_step(model_ntk, ar, device, n_train, labels_distribution=None, test_data
     ####################################################
     # Privatising quantities
 
-    if "mnist" in ar.data or "cifar" in ar.data: #balanced datasets
+    if "cifar" in ar.data:  # balanced datasets
         """ adding DP noise to sensitive data """
         noise_mean_emb1 = mean_emb1
         if ar.tgt_eps is not None:
@@ -254,16 +256,12 @@ def gen_step(model_ntk, ar, device, n_train, labels_distribution=None, test_data
             std = 2 * privacy_param['sigma'] / n_data
             noise = noise * std
             noise_mean_emb1 += noise
-
-
-    else: #tabular datasets which are not balanced,
+    else:  # tabular datasets which are not balanced,
         # privatizing weights (label distribution) and mean embeddings
         """ specifying ratios of data to generate depending on the class labels """
         unnormalized_weights = labels_distribution
         weights = unnormalized_weights / np.sum(unnormalized_weights)
         print('\nweights with no privatization are', weights, '\n')
-
-
 
         """ privatizing weights """
 
@@ -271,8 +269,8 @@ def gen_step(model_ntk, ar, device, n_train, labels_distribution=None, test_data
         # desired privacy level
         epsilon = ar.tgt_eps
         delta = 1e-5
-        k = n_classes   # +1? this dp analysis has been updated
-        #k = 2
+        k = n_classes  # +1? this dp analysis has been updated
+        # k = 2
         privacy_param = privacy_calibrator.gaussian_mech(epsilon, delta, k=k)
         print(f'eps,delta = ({epsilon},{delta}) ==> Noise level sigma=', privacy_param['sigma'])
 
@@ -304,23 +302,19 @@ def gen_step(model_ntk, ar, device, n_train, labels_distribution=None, test_data
 
     # End of Privatising quantities if necessary
     ####################################################
-###############
-
-
+    ###############
 
     if ar.data == 'cifar10':
         code_fun = get_code_fun(device, n_classes, ar.d_code)
-    elif ar.data in tab_datasets:
-        code_fun, labels = get_code_tab_fun(device, ar.gen_batch_size, ar.d_code, labels_distribution) #fig out arguments
     else:
-        code_fun = model.get_code
+        code_fun, labels = get_code_tab_fun(device, ar.gen_batch_size, ar.d_code,
+                                            labels_distribution)  # fig out arguments
 
     """ generate 100 sample for output log """
-    if ar.data == "cifar10" or "mnist"in ar.data:
+    if ar.data == "cifar10" in ar.data:
         fixed_labels = pt.repeat_interleave(pt.arange(10, device=device), 10)
         print(fixed_labels.shape)
         fixed_noise = code_fun(batch_size=100, labels=fixed_labels[:, None])
-
 
     """ training a Generator via minimizing MMD """
     print("\n\nTraining generator\n")
@@ -329,16 +323,16 @@ def gen_step(model_ntk, ar, device, n_train, labels_distribution=None, test_data
         optimizer.zero_grad()  # zero the parameter gradients
 
         """ synthetic data """
-        if ar.data == "cifar10" or "mnist" in ar.data:
-            gen_code, gen_labels = code_fun(ar.batch_size)
+        if ar.data == "cifar10" in ar.data:
+            gen_code, gen_labels = code_fun(ar.emb_batch_size)
             gen_code = gen_code.to(device)
             gen_samples = model(gen_code)
             _, gen_labels_numerical = torch.max(gen_labels, dim=1)
-        else: #tab
+        else:  # tab
             gen_code = code_fun
-            #print("gen input", gen_code.shape)
+            # print("gen input", gen_code.shape)
             gen_samples = model(gen_code)
-            #print("gen output", gen_samples.shape)
+            # print("gen output", gen_samples.shape)
 
         """ synthetic data mean_emb init """
         mean_emb2 = torch.zeros((d, n_classes), device=device)
@@ -348,8 +342,6 @@ def gen_step(model_ntk, ar, device, n_train, labels_distribution=None, test_data
             mean_v_samp = torch.Tensor([]).to(device)  # sample mean vector init
             if ar.data == 'cifar10':
                 f_x = model_ntk(gen_samples[idx][None, :, :, :])  # 1 input, dimensions need tweaking
-            elif ar.data in tab_datasets:
-                f_x = model_ntk(gen_samples[idx][None, :])
             else:
                 f_x = model_ntk(gen_samples[idx][None, :])
 
@@ -358,43 +350,36 @@ def gen_step(model_ntk, ar, device, n_train, labels_distribution=None, test_data
                                              grad_outputs=f_x.data.new(f_x.shape).fill_(1), create_graph=True)
             for g in f_idx_grad:
                 mean_v_samp = torch.cat((mean_v_samp, g.flatten()))
-            mean_v_samp = mean_v_samp[:-1]
 
             """ normalize the sample mean vector """
-            m = mean_v_samp
-            #m = mean_v_samp / torch.norm(mean_v_samp)
-            if ar.data in tab_datasets:
-                mean_emb2[:, labels[idx].long()] += m
-            else:
+            m = mean_v_samp / torch.norm(mean_v_samp)
+            if ar.data == 'cifar10':
                 mean_emb2[:, gen_labels_numerical[idx].long()] += m
+            else:
+                mean_emb2[:, labels[idx].long()] += m
 
         """ average by batch size """
         mean_emb2 = torch.div(mean_emb2, ar.gen_batch_size)
 
         """ calculate loss """
         loss = torch.norm(noise_mean_emb1 - mean_emb2, p=2) ** 2
-        # loss = torch.sum(torch.abs(noise_mean_emb1 - mean_emb2))
         loss.backward()
         optimizer.step()
 
         running_loss += loss.item()
         if running_loss <= 1e-4:
             break
-        if epoch % 100 == 0:
+        if epoch % ar.log_interval == 0 or epoch == ar.n_iter - 1:
             if ar.data == 'cifar10':
                 log_step(epoch, loss, model, fixed_noise, 'test', ar.log_dir)
-            # else:
-            #     log_gen_data(model, device, epoch, n_classes, ar.log_dir)
+            print('epoch # and running loss are ', [epoch, running_loss])
+            training_loss_per_epoch[epoch] = running_loss
         if epoch % ar.scheduler_interval == 0:
             scheduler.step()
-        print('epoch # and running loss are ', [epoch, running_loss])
-        # training_loss_per_epoch[epoch] = running_loss
-
-
 
     print("\n\nTesting\n")
     """ log outputs """
-    score=None
+    score = None
     if ar.data == 'cifar10':
         # save trained model and data
         pt.save(model.state_dict(), ar.log_dir + 'gen.pt')
@@ -412,28 +397,16 @@ def gen_step(model_ntk, ar, device, n_train, labels_distribution=None, test_data
                                    base_data_dir='../data', batch_size=50)
         print(f'fid={fid_score}')
         np.save(os.path.join(ar.log_dir, 'fid.npy'), fid_score)
-    elif "mnist" in ar.data:
-        """plot generation """
-        log_gen_data(model, device, ar.n_iter, n_classes, ar.log_dir)
 
-        """evaluate the model"""
-        pt.save(model.state_dict(), ar.log_dir + 'gen.pt')
-        syn_data, syn_labels = synthesize_mnist_with_uniform_labels(model, device)
-        np.savez(ar.log_dir + 'synthetic_mnist', data=syn_data, labels=syn_labels)
-        final_score = test_gen_data(ar.log_dir, ar.data, data_base_dir="", subsample=0.1, custom_keys="logistic_reg",
-                                    data_from_torch=True)
-        log_final_score(ar.log_dir, final_score)
+    else:
 
-        final_score = test_gen_data(ar.log_dir, ar.data, data_base_dir="", subsample=0.1, custom_keys="mlp",
-                                    data_from_torch=True)
-        log_final_score(ar.log_dir, final_score)
-        
-    elif ar.data in tab_datasets:
+        generated_input_features_final, generated_labels = synthesize_data_tab(ar, model, ar.data, n_train, input_size,
+                                                                               num_numerical_inputs,
+                                                                               labels_distribution, n_classes, device)
 
-        generated_input_features_final, generated_labels = synthesize_data_tab(ar, model, ar.data, n_train, input_size, num_numerical_inputs, labels_distribution, n_classes, device)
+        roc, prc = test_models(generated_input_features_final, generated_labels, test_data, test_labels, n_classes,
+                               "generated", ar.tab_classifiers, ar.data)
 
-        roc, prc = test_models(generated_input_features_final, generated_labels, test_data, test_labels, n_classes, "generated", ar.tab_classifiers, ar.data)
-
-        score = roc,prc
+        score = roc, prc
 
     return score

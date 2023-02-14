@@ -38,7 +38,7 @@ def calc_mean_emb1(model_ntk, ar, device, train_loader, n_classes):
     mean_v_samp = torch.Tensor([]).to(device)
     for p in model_ntk.parameters():
         mean_v_samp = torch.cat((mean_v_samp, p.flatten()))
-    d = len(mean_v_samp) - 1
+    d = len(mean_v_samp)
     mean_emb1 = torch.zeros((d, n_classes), device=device)
     print('Feature Length:', d)
     n_data = 0
@@ -66,7 +66,6 @@ def calc_mean_emb1(model_ntk, ar, device, train_loader, n_classes):
                                              grad_outputs=f_x.data.new(f_x.shape).fill_(1))
             for g in f_idx_grad:
                 mean_v_samp = torch.cat((mean_v_samp, g.flatten()))
-            mean_v_samp = mean_v_samp[:-1]
 
             """ normalize the sample mean vector """
             m = mean_v_samp / torch.norm(mean_v_samp)
