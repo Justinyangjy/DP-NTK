@@ -195,10 +195,10 @@ def load_cifar10(image_size, dataroot, use_autoencoder, batch_size,
     dataloader = pt.utils.data.DataLoader(dataset, batch_size=batch_size,
                                           shuffle=True, num_workers=int(n_workers))
 
-    test_dataloader = pt.utils.data.DataLoader(test_dataset, batch_size=batch_size,
-                                          shuffle=True, num_workers=int(n_workers))
+    # test_dataloader = pt.utils.data.DataLoader(test_dataset, batch_size=batch_size,
+    #                                       shuffle=True, num_workers=int(n_workers))
 
-    return dataloader, n_classes, test_dataloader
+    return dataloader, n_classes
 
 
 def load_synth_dataset(data_file, batch_size, subset_size=None, to_tensor=False, shuffle=True):

@@ -34,7 +34,7 @@ def calc_mean_emb1(model_ntk, ar, device):
 
     """ load MNIST, FashionMNIST or cifar10 """
     if ar.data == 'cifar10':
-        train_loader, n_classes, _ = load_cifar10(image_size=32, dataroot='../../data/', use_autoencoder=False,batch_size=ar.batch_size, n_workers=2, labeled=True, test_set=False, scale_to_range=False)
+        train_loader, n_classes = load_cifar10(image_size=32, dataroot='../../data/', use_autoencoder=False,batch_size=ar.batch_size, n_workers=2, labeled=True, test_set=False, scale_to_range=False)
         input_dim = 32 * 32 * 3
         n_data = 50_000
         n_classes = 1
@@ -52,18 +52,12 @@ def calc_mean_emb1(model_ntk, ar, device):
     for p in model_ntk.parameters():
         mean_v_samp = torch.cat((mean_v_samp, p.flatten()))
     d = len(mean_v_samp) - 1
-    mean_emb1_1 = torch.zeros(d, device=device)
-    mean_emb1_2 = torch.zeros((32*32, 3), device=device)
+    mean_emb1 = torch.zeros(d, device=device)
     print('Feature Length:', d)
     n_c = n_data
 
     for data, labels in train_loader:
-        if ar.data != 'celeba':
-            # data, y_train = data.to(device), labels.to(device)
-            # data = data[y_train == ar.which_class]
-            data = data.to(device)
-        else:
-            data = data.to(device)
+        data = data.to(device)
         for i in range(data.shape[0]):
             """ manually set the weight if needed """
             # model_ntk.fc1.weight = torch.nn.Parameter(output_weights[y_train[i],:][None,:])
@@ -76,23 +70,19 @@ def calc_mean_emb1(model_ntk, ar, device):
                                              grad_outputs=f_x.data.new(f_x.shape).fill_(1))
             for g in f_idx_grad:
                 mean_v_samp = torch.cat((mean_v_samp, g.flatten()))
-            mean_v_samp = mean_v_samp[:-1]
+            mean_v_samp = mean_v_samp[:-1]  # Removing last feature as gradient is always 1.
 
             """ normalize the sample mean vector """
             if ar.is_private:
-                mean_emb1_1 += mean_v_samp / torch.norm(mean_v_samp)
+                mean_emb1 += mean_v_samp / torch.norm(mean_v_samp)
             else:
-                mean_emb1_1 += mean_v_samp
-            mean_emb1_2 += torch.transpose(torch.flatten(data[i], 1), 0, 1)
+                mean_emb1 += mean_v_samp
 
     """ average by class count """
-    mean_emb1_1 = torch.div(mean_emb1_1, n_c)
-    mean_emb1_2 = torch.div(mean_emb1_2, n_c)
-    print("This is the shape for dp-mint mean_emb1_1: ", mean_emb1_1.shape)
-    print("This is the shape for dp-mint mean_emb1_2: ", mean_emb1_2.shape)
+    mean_emb1 = torch.div(mean_emb1, n_c)
+    print("This is the shape for dp-mint mean_emb1: ", mean_emb1.shape)
 
     """ save model for downstream task """
-    torch.save(mean_emb1_1, ar.log_dir + 'mean_emb1_1_' + str(d) + '.pth')
-    torch.save(mean_emb1_2, ar.log_dir + 'mean_emb1_2_' + ar.data + '.pth')
+    torch.save(mean_emb1, ar.log_dir + 'mean_emb1_1_' + str(d) + '.pth')
 
     torch.save(model_ntk.state_dict(), ar.log_dir + 'model_' + str(d) + '.pth')

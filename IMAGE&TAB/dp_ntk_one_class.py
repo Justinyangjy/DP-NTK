@@ -6,8 +6,8 @@ import numpy as np
 import torch as pt
 from torchvision.models import resnet18
 
-from dp_ntk_gen_step_one_class_w_reg import gen_step
-from dp_ntk_mean_emb1_one_class_w_reg import calc_mean_emb1
+from dp_ntk_gen_step_one_class import gen_step
+from dp_ntk_mean_emb1_one_class import calc_mean_emb1
 from models.ntk import *
 
 
@@ -21,7 +21,7 @@ def get_args():
                         help='path where logs for all runs are stored')
     parser.add_argument('--log-dir', type=str, default=None,
                         help='override save path. constructed if None')
-    parser.add_argument('--data', type=str, default='cifar10', help='cifar10, celeba, dmnist or fmnist')
+    parser.add_argument('--data', type=str, default='cifar10', help='cifar10 or celeba')
     parser.add_argument('--id', default="None", help='custom description of the set-up')
 
     # OPTIMIZATION
@@ -33,26 +33,18 @@ def get_args():
     parser.add_argument('--lr-decay', type=float, default=0.9, help='learning rate decay factor')
     parser.add_argument('--scheduler-interval', type=int, default=1000,
                         help='reduce lr after n steps')
-    parser.add_argument('--reg', '-r', type=float, default=1e-7, help='regularizer')
-    # parser.add_argument('--regularization', '-reg', type=int, default=500,
-    #                     help='reduce lr after n steps')
-    # parser.add_argument('-l', '--list', action='append', help='<Required> Set flag', required=True)
-
     # MODEL DEFINITION
     parser.add_argument('--d-code', '-dcode', type=int, default=100, help='random code dimensionality')
     parser.add_argument('--gen-spec', type=str, default="200,200")
-    parser.add_argument('--which-feat', type=str, default="ntk", help='ntk, pf or both')
     parser.add_argument('--model-ntk', default="cnn2d_1l")
     parser.add_argument('--ntk-width', type=int, default=20, help='width of NTK for apprixmate mmd')
     parser.add_argument('--ntk-width-2', type=int, default=100, help='width of NTK for apprixmate mmd 2nd layer')
-    parser.add_argument('--which-class', type=int, default=0, help='which class to generate')
 
 
     # DP SPEC
     parser.add_argument('--is-private', type=int, default=1)
     parser.add_argument('--tgt-eps', type=float, default=None, help='privacy parameter - finds noise')
     parser.add_argument('--tgt-delta', type=float, default=1e-5, help='privacy parameter - finds noise')
-    parser.add_argument('-norm-param', type=float, default=1.0, help="factor for normalizing generated embedding ")
 
     ar = parser.parse_args()
 
