@@ -34,8 +34,6 @@ def load_dataset(dataset_name, image_size, center_crop_size, dataroot, use_autoe
         path_celeba = os.path.join(dataroot, 'img_align_celeba'),
         dataset = dset.ImageFolder(root=path_celeba, transform=transforms.Compose(transformations))
 
-        #dataset = torchvision.datasets.CelebA('/home/kamil/Dropbox/Current_research/data/img_align_celeba/', 'all')
-
 
     elif dataset_name == 'lsun':
         n_classes = None
