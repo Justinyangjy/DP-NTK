@@ -39,7 +39,7 @@ def calc_mean_emb1(model_ntk, ar, device):
         n_data = 50_000
         n_classes = 1
     else:
-        train_loader, _ = load_dataset('celeba', image_size=32, center_crop_size=32, dataroot='../data/',
+        train_loader, _ = load_dataset('celeba', image_size=32, center_crop_size=32, dataroot='../../data/',
                                        use_autoencoder=False, batch_size=100,
                                        n_workers=2, labeled=False, test_set=False)
         input_dim = 32 * 32 * 3
