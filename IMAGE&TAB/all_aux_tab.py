@@ -276,7 +276,7 @@ def undersample(raw_input_features, raw_labels, undersampled_rate):
     # take random 10 percent of the negative labelled data
     in_keep = np.random.permutation(np.sum(idx_negative_label))
     under_sampling_rate = undersampled_rate  # 0.4
-    in_keep = in_keep[0:np.int(np.sum(idx_negative_label) * under_sampling_rate)]
+    in_keep = in_keep[0:np.int_(np.sum(idx_negative_label) * under_sampling_rate)]
 
     neg_samps_input = neg_samps_input[in_keep, :]
     neg_samps_label = neg_samps_label[in_keep]
@@ -377,7 +377,7 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
 
         print("epileptic seizure recognition dataset")  # this is homogeneous
 
-        data = pd.read_csv("../../data/tab_data/Epileptic/data.csv")
+        data = pd.read_csv("./data/tab_data/Epileptic/data.csv")
 
         feature_names = data.iloc[:, 1:-1].columns
         target = data.iloc[:, -1:].columns
@@ -430,7 +430,7 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
 
         print("Creditcard fraud detection dataset")  # this is homogeneous
 
-        data = pd.read_csv("../../data/tab_data/Kaggle_Credit/creditcard.csv")
+        data = pd.read_csv("./data/tab_data/Kaggle_Credit/creditcard.csv")
 
         feature_names = data.iloc[:, 1:30].columns
         target = data.iloc[:, 30:].columns
@@ -472,7 +472,7 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
 
         print("census dataset")  # this is heterogenous
 
-        data = np.load("../../data/tab_data/real/census/train.npy")
+        data = np.load("./data/tab_data/real/census/train.npy")
 
         numerical_columns = [0, 5, 16, 17, 18, 29, 38]
         ordinal_columns = []
@@ -516,7 +516,7 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
 
         print("dataset is", dataset)  # this is heterogenous
 
-        df = pd.read_csv("../../data/tab_data/Cervical/kag_risk_factors_cervical_cancer.csv")
+        df = pd.read_csv("./data/tab_data/Cervical/kag_risk_factors_cervical_cancer.csv")
 
         # df.head()
         df_nan = df.replace("?", np.float64(np.nan))
@@ -596,7 +596,7 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
 
         # adult_data = pd.read_csv("../data/adult/adult.csv")
 
-        filename = '../../data/tab_data/adult/adult.p'
+        filename = './data/tab_data/adult/adult.p'
         with open(filename, 'rb') as f:
             u = pickle._Unpickler(f)
             u.encoding = 'latin1'
@@ -635,8 +635,8 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
 
         print("isolet dataset")
 
-        data_features_npy = np.load('../../data/tab_data/Isolet/isolet_data.npy')
-        data_target_npy = np.load('../../data/tab_data/Isolet/isolet_labels.npy')
+        data_features_npy = np.load('./data/tab_data/Isolet/isolet_data.npy')
+        data_target_npy = np.load('./data/tab_data/Isolet/isolet_labels.npy')
 
         values = data_features_npy
         index = ['Row' + str(i) for i in range(1, len(values) + 1)]
@@ -687,8 +687,8 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
 
         print("dataset is", dataset)
 
-        original_train_data = np.load("../../data/tab_data/real/intrusion/train.npy")
-        original_test_data = np.load("../../data/tab_data/real/intrusion/test.npy")
+        original_train_data = np.load("./data/tab_data/real/intrusion/train.npy")
+        original_test_data = np.load("./data/tab_data/real/intrusion/test.npy")
 
         # we put them together and make a new train/test split in the following
         data = np.concatenate((original_train_data, original_test_data))
@@ -736,8 +736,8 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
 
         print("dataset is", dataset)
 
-        train_data = np.load("../../data/tab_data/real/covtype/train_new.npy")
-        test_data = np.load("../../data/tab_data/real/covtype/test_new.npy")
+        train_data = np.load("./data/tab_data/real/covtype/train_new.npy")
+        test_data = np.load("./data/tab_data/real/covtype/test_new.npy")
         # we put them together and make a new train/test split in the following
         data = np.concatenate((train_data, test_data))
 
@@ -964,7 +964,7 @@ def test_models(X_tr, y_tr, X_te, y_te, n_classes, datasettype, classifiers, dat
             elif 'SVC' in str(model)[0:9]:
                 print('training again')
 
-                model = SVC(max_iter=10000, tol=1e-8, loss='hinge')
+                model = SVC(max_iter=10000, tol=1e-8)
                 print(X_tr.shape)
                 print(y_tr.shape)
                 model.fit(X_tr, y_tr)
@@ -973,14 +973,14 @@ def test_models(X_tr, y_tr, X_te, y_te, n_classes, datasettype, classifiers, dat
                 prc_temp1 = average_precision_score(y_te, pred)
 
                 print('training again')
-                model = SVC(max_iter=10000, tol=1e-8, loss='hinge', class_weight='balanced')
+                model = SVC(max_iter=10000, tol=1e-8, class_weight='balanced')
                 model.fit(X_tr, y_tr)
                 pred = model.predict(X_te)  # test on real data
                 roc_temp2 = roc_auc_score(y_te, pred)
                 prc_temp2 = average_precision_score(y_te, pred)
 
                 print('training again')
-                model = SVC(max_iter=10000, tol=1e-12, loss='hinge', C=0.01)
+                model = SVC(max_iter=10000, tol=1e-12, C=0.01)
                 model.fit(X_tr, y_tr)
                 pred = model.predict(X_te)  # test on real data
                 roc_temp3 = roc_auc_score(y_te, pred)

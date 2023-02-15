@@ -192,7 +192,7 @@ def gen_step(model_ntk, ar, device):
 
     fid_score = get_fid_scores(data_file, ar.data, device, syn_data_size,
                                image_size, center_crop_size=32, use_autoencoder=False,
-                               base_data_dir='../data', batch_size=50)
+                               base_data_dir='./data', batch_size=50)
     print(f'fid={fid_score}')
     np.save(os.path.join(ar.log_dir, 'fid.npy'), fid_score)
 

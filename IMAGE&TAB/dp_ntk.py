@@ -23,7 +23,7 @@ def get_args():
                         help='path where logs for all runs are stored')
     parser.add_argument('--log-dir', type=str, default=None,
                         help='override save path. constructed if None')
-    parser.add_argument('--data', type=str, default='cifar10', help='cifar10 or tabular: adult, census, cervical, '
+    parser.add_argument('--data', type=str, default='adult', help='cifar10 or tabular: adult, census, cervical, '
                                                                     'isolet,credit, epileptic, intrusion, covtype')
     parser.add_argument('--id', default="None", help='custom description of the set-up')
 
@@ -45,16 +45,15 @@ def get_args():
     parser.add_argument('--ntk-width-2', type=int, default=1000, help='width of NTK for apprixmate mmd 2nd layer')
 
     # DP SPEC
-    parser.add_argument('--tgt-eps', type=float, default=10, help='privacy parameter - finds noise')
+    parser.add_argument('--tgt-eps', type=float, default=None, help='privacy parameter - finds noise')
     parser.add_argument('--tgt-delta', type=float, default=1e-5, help='privacy parameter - finds noise')
-    parser.add_argument('--is-private', type=int, default=1)
 
     parser.add_argument('--tab_classifiers', nargs='+', type=int, help='list of integers',
                         default=[3, 4])  # 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
 
     ar = parser.parse_args()
-    print(ar)
     preprocess_args(ar)
+    print(ar)
     return ar
 
 
@@ -69,6 +68,11 @@ def preprocess_args(ar):
     if ar.seed is None:
         ar.seed = np.random.randint(0, 1000)
 
+    if ar.tgt_eps is None:
+        ar.is_private = 0
+    else:
+        ar.is_private = 1
+
 
 def main():
     ar = get_args()
@@ -80,7 +84,7 @@ def main():
 
     # data
 
-    """ load MNIST, FashionMNIST , cifar10 or Tabular data"""
+    """ load Cifar10 or Tabular data"""
     labels_distribution, test_data, y_test = None, None, None
     if ar.data == 'cifar10':
         train_loader, n_classes = load_cifar10(image_size=32, dataroot=ar.log_dir, use_autoencoder=False,
@@ -110,9 +114,15 @@ def main():
         model_ntk = NTK_TL(input_size=input_dim, hidden_size_1=ar.ntk_width, hidden_size_2=ar.ntk_width_2,
                            output_size=n_classes)  # output=n_classes
     elif ar.model_ntk == "cnn_2l":
-        model_ntk = CNTK_1D(input_dim, ar.ntk_width, ar.ntk_width_2, output_size=n_classes)
+        if ar.data == 'cifar10':
+            model_ntk = CNTK(ar.ntk_width)
+        else:
+            model_ntk = CNTK_1D(input_dim, ar.ntk_width, ar.ntk_width_2, output_size=n_classes)
     elif ar.model_ntk == "cnn_1l":
-        model_ntk = CNTK_1D_1L(input_dim, ar.ntk_width, ar.ntk_width_2, output_size=n_classes)
+        if ar.data == 'cifar10':
+            model_ntk = CNTK_2L(ar.ntk_width, ar.ntk_width_2)
+        else:
+            model_ntk = CNTK_1D_1L(input_dim, ar.ntk_width, ar.ntk_width_2, output_size=n_classes)
 
     model_ntk.to(device)
     model_ntk.eval()

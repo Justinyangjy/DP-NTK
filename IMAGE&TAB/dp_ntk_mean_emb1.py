@@ -52,14 +52,11 @@ def calc_mean_emb1(model_ntk, ar, device, train_loader, n_classes):
             """ manually set the weight if needed """
             # model_ntk.fc1.weight = torch.nn.Parameter(output_weights[y_train[i],:][None,:])
 
-            tab_datasets = ["adult", "census", "cervical", "credit", "isolet", "epileptic", "intrusion", "covtype"]
             mean_v_samp = torch.Tensor([]).to(device)  # sample mean vector init
             if ar.data == 'cifar10':
                 f_x = model_ntk(data[i][None, :, :, :])  # 1 input, dimensions need tweaking
-            elif ar.data in tab_datasets:
-                f_x = model_ntk(data[i][None, :])
             else:
-                f_x = model_ntk(data[i])
+                f_x = model_ntk(data[i][None, :])
 
             """ get NTK features """
             f_idx_grad = torch.autograd.grad(f_x, model_ntk.parameters(),
@@ -69,7 +66,7 @@ def calc_mean_emb1(model_ntk, ar, device, train_loader, n_classes):
 
             """ normalize the sample mean vector """
             m = mean_v_samp / torch.norm(mean_v_samp)
-            if ar.data in tab_datasets:
+            if ar.data != 'cifar10':
                 m = m[:, None]
             mean_emb1[:, y_train[i].long()] += m
 

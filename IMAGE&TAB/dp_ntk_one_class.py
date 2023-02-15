@@ -40,13 +40,13 @@ def get_args():
     parser.add_argument('--ntk-width-2', type=int, default=100, help='width of NTK for apprixmate mmd 2nd layer')
 
     # DP SPEC
-    parser.add_argument('--is-private', type=int, default=1)
+    # parser.add_argument('--is-private', type=int, default=1)
     parser.add_argument('--tgt-eps', type=float, default=None, help='privacy parameter - finds noise')
     parser.add_argument('--tgt-delta', type=float, default=1e-5, help='privacy parameter - finds noise')
 
     ar = parser.parse_args()
-
     preprocess_args(ar)
+    print(ar)
     return ar
 
 
@@ -60,12 +60,14 @@ def preprocess_args(ar):
     if ar.seed is None:
         ar.seed = np.random.randint(0, 1000)
 
+    if ar.tgt_eps is None:
+        ar.is_private = 0
+    else:
+        ar.is_private = 1
 
-def main(data=None):
+
+def main():
     ar = get_args()
-    if data is not None:
-        ar.data = data
-    print(ar)
     random.seed(ar.seed)
     pt.manual_seed(ar.seed)
 
