@@ -4,7 +4,6 @@ import random
 
 import numpy as np
 import torch as pt
-from torchvision.models import resnet18
 
 from dp_ntk_gen_step_one_class import gen_step
 from dp_ntk_mean_emb1_one_class import calc_mean_emb1
@@ -39,7 +38,6 @@ def get_args():
     parser.add_argument('--model-ntk', default="cnn2d_1l")
     parser.add_argument('--ntk-width', type=int, default=20, help='width of NTK for apprixmate mmd')
     parser.add_argument('--ntk-width-2', type=int, default=100, help='width of NTK for apprixmate mmd 2nd layer')
-
 
     # DP SPEC
     parser.add_argument('--is-private', type=int, default=1)
@@ -82,39 +80,17 @@ def main(data=None):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print('device is', device)
 
-    # model_ntk = NTK_TL(input_size=input_dim, hidden_size_1=500, hidden_size_2=500, output_size=10)
-    # model_ntk = resnet18()
-    # model_ntk.fc = torch.nn.Linear(512, 10, bias=False)
     if ar.model_ntk == "fc_1l":
         model_ntk = NTK(input_size=input_dim, hidden_size_1=ar.ntk_width, output_size=1)
     elif ar.model_ntk == "fc_2l":
-        model_ntk = NTK_TL(input_size=input_dim, hidden_size_1=ar.ntk_width, hidden_size_2=ar.ntk_width_2,output_size=1)  # output=n_classes
+        model_ntk = NTK_TL(input_size=input_dim, hidden_size_1=ar.ntk_width, hidden_size_2=ar.ntk_width_2,
+                           output_size=1)  # output=n_classes
     elif ar.model_ntk == "cnn2d_1l":
         model_ntk = CNTK(ar.ntk_width)
     elif ar.model_ntk == "cnn2d_2l":
         model_ntk = CNTK_2L(ar.ntk_width, ar.ntk_width_2)
-    # model_ntk = ResNet()
-    # model_ntk = model_ntk.net
-    # model_ntk_pretrain = Net_eNTK_pretrain()
-    # model_ntk = get_ffcv_model(device, num_class=1)
-    # model_ntk = Net_eNTK()
-    # model_ntk = pt.load('model_cNTK.pth')
-    # model_ntk = pt.load('model_ResNet9_imagenet.pth')
-    # model_ntk_pretrain.load_state_dict(pt.load('model_cNTK_cifar.pth', map_location=device))
-    # model_ntk.load_state_dict(pt.load('model_cNTK_cifar.pth', map_location=device))
-
-    # model_ntk.fc1 = nn.Linear(4096, 1)
-    # model_ntk.load_parameters(path='model_cNTK.pth')
-    # model_ntk[-2] = torch.nn.Linear(128, 1, bias=False)
     model_ntk.to(device)
     model_ntk.eval()
-    # print(model_ntk)
-    # print(model_ntk)
-    # model_ntk_pretrain.to(device)
-    # output_weights = model_ntk_pretrain.fc1.weight
-    # print(output_weights[0,:])
-    # model_ntk.fc1.weight = torch.nn.Parameter(output_weights[0,:])
-    # print(model_ntk.fc1.weight)
 
     print('computing mean embedding of true data')
     calc_mean_emb1(model_ntk, ar, device)

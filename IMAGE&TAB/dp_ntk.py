@@ -7,7 +7,7 @@ import numpy as np
 import torch as pt
 
 from all_aux_tab import data_loading
-from data_loading import load_cifar10, get_mnist_dataloaders
+from data_loading import load_cifar10
 from dp_ntk_gen_step import gen_step
 from dp_ntk_mean_emb1 import calc_mean_emb1
 from models.ntk import *
@@ -84,8 +84,8 @@ def main():
     labels_distribution, test_data, y_test = None, None, None
     if ar.data == 'cifar10':
         train_loader, n_classes = load_cifar10(image_size=32, dataroot=ar.log_dir, use_autoencoder=False,
-                                                            batch_size=100, n_workers=2, labeled=True,
-                                                            test_set=False, scale_to_range=False)
+                                               batch_size=100, n_workers=2, labeled=True,
+                                               test_set=False, scale_to_range=False)
         input_dim = 32 * 32 * 3
         n_train = 50_000
     else:
@@ -97,14 +97,6 @@ def main():
         train_dataset = pt.utils.data.TensorDataset(tensor_x, tensor_y)  # create your dataset
         train_loader = pt.utils.data.DataLoader(train_dataset, batch_size=ar.emb_batch_size)  # create your dataloader
 
-        # test_tensor_x = torch.stack([torch.Tensor(i) for i in train_data])  # transform to torch tensors
-        # test_tensor_y = torch.stack([torch.Tensor(np.array([i])) for i in y_test])
-        #
-        # test_dataset = pt.utils.data.TensorDataset(test_tensor_x, test_tensor_y)  # create your datset
-        # test_loader = pt.utils.data.DataLoader(test_dataset, batch_size=ar.batch_size)  # create your dataloader
-
-        # train_data, test_data, labels, y_test = pt.Tensor(train_loader), pt.Tensor(test_data), pt.LongTensor(labels), pt.LongTensor(y_test)
-
         # one-hot encoding of labels.
         n_train, input_dim = train_data.shape
         labels_counts = list(Counter(labels).values())
@@ -112,42 +104,18 @@ def main():
         n_classes = len(labels_distribution)
         print("labels distr", labels_distribution)
 
-    # net
-
-    # model_ntk = ResNet(input_size=input_dim, hidden_size_1=ar.ntk_width, output_size=n_classes)
-    # model_ntk = NTK(input_size=input_dim, hidden_size_1=9000, output_size=1)
     if ar.model_ntk == "fc_1l":
         model_ntk = NTK(input_size=input_dim, hidden_size_1=ar.ntk_width, output_size=n_classes)
     elif ar.model_ntk == "fc_2l":
         model_ntk = NTK_TL(input_size=input_dim, hidden_size_1=ar.ntk_width, hidden_size_2=ar.ntk_width_2,
                            output_size=n_classes)  # output=n_classes
-
-    # model_ntk = CNTK()
     elif ar.model_ntk == "cnn_2l":
         model_ntk = CNTK_1D(input_dim, ar.ntk_width, ar.ntk_width_2, output_size=n_classes)
     elif ar.model_ntk == "cnn_1l":
         model_ntk = CNTK_1D_1L(input_dim, ar.ntk_width, ar.ntk_width_2, output_size=n_classes)
-    # model_ntk = ResNet()
-    # model_ntk = model_ntk.net
-    # model_ntk_pretrain = Net_eNTK_pretrain()
-    # model_ntk = get_ffcv_model(device, num_class=1000)
-    # model_ntk = resnet18(ResNet18_Weights.IMAGENET1K_V1)
-    # model_ntk.fc = torch.nn.Linear(512, 1, bias=False)
-    # model_ntk = Net_eNTK()
-    # model_ntk = pt.load('model_cNTK.pth')
-    # model_ntk = pt.load('model_ResNet9.pth')
-    # model_ntk_pretrain.load_state_dict(pt.load('model_cNTK_cifar.pth', map_location=device))
-    # model_ntk.load_state_dict(pt.load('model_cNTK_cifar.pth', map_location=device))
 
-    # model_ntk.fc1 = nn.Linear(4096, 1)
-    # model_ntk.load_parameters(path='model_cNTK.pth')
     model_ntk.to(device)
     model_ntk.eval()
-    # model_ntk_pretrain.to(device)
-    # output_weights = model_ntk_pretrain.fc1.weight
-    # print(output_weights[0,:])
-    # model_ntk.fc1.weight = torch.nn.Parameter(output_weights[0,:])
-    # print(model_ntk.fc1.weight)
 
     print('computing mean embedding of true data')
     calc_mean_emb1(model_ntk, ar, device, train_loader, n_classes)

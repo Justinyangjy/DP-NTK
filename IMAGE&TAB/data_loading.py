@@ -31,12 +31,7 @@ def load_dataset(dataset_name, image_size, center_crop_size, dataroot, use_autoe
 
         # folder dataset
         print(socket.gethostname())
-        if socket.gethostname()=='kamilblade':
-            path_celeba = '/home/kamil/Downloads/cel'
-        elif 'login' in socket.gethostname():
-            path_celeba = "/home/kadamczewski/Dropbox_from/Current_research/data/cel"
-        else:
-            path_celeba = os.path.join(dataroot, 'img_align_celeba'),
+        path_celeba = os.path.join(dataroot, 'img_align_celeba'),
         dataset = dset.ImageFolder(root=path_celeba, transform=transforms.Compose(transformations))
 
         #dataset = torchvision.datasets.CelebA('/home/kamil/Dropbox/Current_research/data/img_align_celeba/', 'all')

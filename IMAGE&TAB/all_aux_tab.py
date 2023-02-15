@@ -1,110 +1,96 @@
+import pickle
 
 import numpy as np
+import pandas as pd
+import seaborn as sns
 # import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
-import torch.optim as optim
-# import util
-import random
-import socket
-# from sdgym import load_dataset
-import argparse
-import sys
-
-
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
-from sklearn.naive_bayes import GaussianNB
-from sklearn.naive_bayes import BernoulliNB
-from sklearn.svm import  LinearSVC, SVC
-from sklearn.tree import DecisionTreeClassifier
+import xgboost
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.ensemble import BaggingClassifier
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.neural_network import MLPClassifier
-import xgboost
-from collections import defaultdict, namedtuple
-from sklearn import linear_model, ensemble, naive_bayes, svm, tree, discriminant_analysis, neural_network
-from sklearn.metrics import roc_auc_score
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import average_precision_score
-from sklearn.model_selection import ParameterGrid
-from autodp import privacy_calibrator
-from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import f1_score
-import sklearn
-from sklearn import datasets
+from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import BernoulliNB
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neural_network import MLPClassifier
+from sklearn.svm import LinearSVC, SVC
+from sklearn.tree import DecisionTreeClassifier
 
-from autodp import privacy_calibrator
-import pandas as pd
-import seaborn as sns
-import pickle
+# import util
+# from sdgym import load_dataset
 sns.set()
 
 import warnings
+
 warnings.filterwarnings('ignore')
 
 import os
 
 
 def find_rho_tab(sigma2):
-  alpha = 1 / (2.0 * sigma2)
-  rho = -1 / 2 / alpha + np.sqrt(1 / alpha ** 2 + 4) / 2
-  if (rho>1).any():
-      print('some of the rho values are above 1. Mehler formula does not hold')
-  return rho
+    alpha = 1 / (2.0 * sigma2)
+    rho = -1 / 2 / alpha + np.sqrt(1 / alpha ** 2 + 4) / 2
+    if (rho > 1).any():
+        print('some of the rho values are above 1. Mehler formula does not hold')
+    return rho
 
 
 def phi_recursion_tab_coord(phi_k, phi_k_minus_1, rho, degree, x_in):
-  # x_in : n_data by input_dim
-  # rho : length of input_dim
-  # every phi has to be the size of (n_data by input_dim)
-  if degree == 0:
-    phi_0 = (1 - rho) ** (0.25) * (1 + rho) ** (0.25) * torch.exp(-rho / (1 + rho) * x_in ** 2)
-    return phi_0
-  elif degree == 1:
-    phi_1 = torch.sqrt(2 * rho) * x_in * phi_k
-    return phi_1
-  else:  # from degree ==2 (k=1 in the recursion formula)
-    k = degree - 1
-    first_term = torch.sqrt(rho) / np.sqrt(2 * (k + 1)) * 2 * x_in * phi_k
-    second_term = rho / np.sqrt(k * (k + 1)) * k * phi_k_minus_1
-    phi_k_plus_one = first_term - second_term
-    return phi_k_plus_one
+    # x_in : n_data by input_dim
+    # rho : length of input_dim
+    # every phi has to be the size of (n_data by input_dim)
+    if degree == 0:
+        phi_0 = (1 - rho) ** (0.25) * (1 + rho) ** (0.25) * torch.exp(-rho / (1 + rho) * x_in ** 2)
+        return phi_0
+    elif degree == 1:
+        phi_1 = torch.sqrt(2 * rho) * x_in * phi_k
+        return phi_1
+    else:  # from degree ==2 (k=1 in the recursion formula)
+        k = degree - 1
+        first_term = torch.sqrt(rho) / np.sqrt(2 * (k + 1)) * 2 * x_in * phi_k
+        second_term = rho / np.sqrt(k * (k + 1)) * k * phi_k_minus_1
+        phi_k_plus_one = first_term - second_term
+        return phi_k_plus_one
 
 
 def compute_phi_tab_coord(x_in, n_degrees, rho, device):
-  n_data, input_dim = x_in.shape # n_data by input_dim
-  # rho : length of input_dim
-  rho = rho[None,:] # rho : 1 by input_dim
-  rho = torch.tensor(rho).to(device)
+    n_data, input_dim = x_in.shape  # n_data by input_dim
+    # rho : length of input_dim
+    rho = rho[None, :]  # rho : 1 by input_dim
+    rho = torch.tensor(rho).to(device)
 
-  batch_embedding = torch.empty(n_data, input_dim, n_degrees, dtype=torch.float32, device=device)
-  phi_i_minus_one, phi_i_minus_two = None, None
-  for degree in range(n_degrees):
-    # print('degree:', degree)
-    phi_i = phi_recursion_tab_coord(phi_i_minus_one, phi_i_minus_two, rho, degree, x_in)
-    batch_embedding[:, :, degree] = phi_i
+    batch_embedding = torch.empty(n_data, input_dim, n_degrees, dtype=torch.float32, device=device)
+    phi_i_minus_one, phi_i_minus_two = None, None
+    for degree in range(n_degrees):
+        # print('degree:', degree)
+        phi_i = phi_recursion_tab_coord(phi_i_minus_one, phi_i_minus_two, rho, degree, x_in)
+        batch_embedding[:, :, degree] = phi_i
 
-    phi_i_minus_two = phi_i_minus_one
-    phi_i_minus_one = phi_i
+        phi_i_minus_two = phi_i_minus_one
+        phi_i_minus_one = phi_i
 
-  return batch_embedding
+    return batch_embedding
 
 
 def ME_with_HP_tab(x, order, rho, device, n_training_data):
-  input_dim = x.shape[1]
+    input_dim = x.shape[1]
 
-  phi_x = compute_phi_tab_coord(x, order+1, rho, device)
-  sum_val = torch.sum(phi_x, axis=0)
-  phi_x = sum_val / n_training_data
+    phi_x = compute_phi_tab_coord(x, order + 1, rho, device)
+    sum_val = torch.sum(phi_x, axis=0)
+    phi_x = sum_val / n_training_data
 
-  phi_x = phi_x / np.sqrt(input_dim) # because we approximate k(x,x') by \sum_d k_d(x_d, x'_d) / input_dim
+    phi_x = phi_x / np.sqrt(input_dim)  # because we approximate k(x,x') by \sum_d k_d(x_d, x'_d) / input_dim
 
-  phi_x = phi_x.view(-1)  # size: input_dim*(order+1)
+    phi_x = phi_x.view(-1)  # size: input_dim*(order+1)
 
-  return phi_x
+    return phi_x
 
 
 def ME_with_HP_prod(x, order, rho, device, n_training_data, dim_0_prod_kernel):
@@ -141,58 +127,59 @@ def ME_with_HP_prod(x, order, rho, device, n_training_data, dim_0_prod_kernel):
 
 
 def ME_with_HP_tab_combined_k(x, order, rho, device, n_training_data, d_sum_kernel):
-  # input_dim = x.shape[1]
-  """ in this case, we use a different order for each input dimension """
-  phi_x = compute_phi_tab_coord_combined_k(x, order+1, rho, device)
-  sum_val = torch.sum(phi_x, axis=0)
-  phi_x = sum_val / n_training_data
-  phi_x = phi_x / np.sqrt(d_sum_kernel)  # because we approximate k(x,x') by \sum_d k_d(x_d, x'_d) / input_dim
+    # input_dim = x.shape[1]
+    """ in this case, we use a different order for each input dimension """
+    phi_x = compute_phi_tab_coord_combined_k(x, order + 1, rho, device)
+    sum_val = torch.sum(phi_x, axis=0)
+    phi_x = sum_val / n_training_data
+    phi_x = phi_x / np.sqrt(d_sum_kernel)  # because we approximate k(x,x') by \sum_d k_d(x_d, x'_d) / input_dim
 
-  return phi_x
+    return phi_x
+
 
 def compute_phi_tab_coord_combined_k(x_in, orders, rho, device):
-  n_data, input_dim = x_in.shape # n_data by input_dim
-  # rho : length of input_dim
-  # rho = rho[None,:] # rho : 1 by input_dim
+    n_data, input_dim = x_in.shape  # n_data by input_dim
+    # rho : length of input_dim
+    # rho = rho[None,:] # rho : 1 by input_dim
 
-  if len(orders)==1:
+    if len(orders) == 1:
 
-      batch_embedding = compute_phi_tab_coord(x_in, int(orders), rho, device)
+        batch_embedding = compute_phi_tab_coord(x_in, int(orders), rho, device)
 
-  else:
+    else:
 
-      rho = torch.tensor(rho).to(device)
-      batch_embedding = torch.empty(n_data, int(sum(orders)), dtype=torch.float32, device=device)
+        rho = torch.tensor(rho).to(device)
+        batch_embedding = torch.empty(n_data, int(sum(orders)), dtype=torch.float32, device=device)
 
-      for dg_idx in range(len(orders)):
-          n_degrees = int(orders[dg_idx])
+        for dg_idx in range(len(orders)):
+            n_degrees = int(orders[dg_idx])
 
-          batch_embedding_coordinate = torch.empty(n_data, n_degrees, dtype=torch.float32, device=device)
-          phi_i_minus_one, phi_i_minus_two = None, None
-          for degree in range(n_degrees):
-            # print('degree:', degree)
-            phi_i = phi_recursion_tab_coord(phi_i_minus_one, phi_i_minus_two, rho[dg_idx], degree, x_in[:, dg_idx])
-            batch_embedding_coordinate[:, degree] = phi_i
+            batch_embedding_coordinate = torch.empty(n_data, n_degrees, dtype=torch.float32, device=device)
+            phi_i_minus_one, phi_i_minus_two = None, None
+            for degree in range(n_degrees):
+                # print('degree:', degree)
+                phi_i = phi_recursion_tab_coord(phi_i_minus_one, phi_i_minus_two, rho[dg_idx], degree, x_in[:, dg_idx])
+                batch_embedding_coordinate[:, degree] = phi_i
 
-            phi_i_minus_two = phi_i_minus_one
-            phi_i_minus_one = phi_i
+                phi_i_minus_two = phi_i_minus_one
+                phi_i_minus_one = phi_i
 
-          if dg_idx==0:
-              batch_embedding[:, 0:int(orders[dg_idx])] = batch_embedding_coordinate
-          else:
-              batch_embedding[:, int(sum(orders[0:dg_idx])):(int(sum(orders[0:dg_idx]))+int(orders[dg_idx]))] = batch_embedding_coordinate
+            if dg_idx == 0:
+                batch_embedding[:, 0:int(orders[dg_idx])] = batch_embedding_coordinate
+            else:
+                batch_embedding[:, int(sum(orders[0:dg_idx])):(
+                            int(sum(orders[0:dg_idx])) + int(orders[dg_idx]))] = batch_embedding_coordinate
 
-  return batch_embedding
+    return batch_embedding
 
 
 def Feature_labels(labels, weights, device):
-
     weights = torch.Tensor(weights)
     weights = weights.to(device)
 
     labels = labels.to(device)
 
-    weighted_labels_feature = labels/weights
+    weighted_labels_feature = labels / weights
 
     return weighted_labels_feature
 
@@ -200,80 +187,80 @@ def Feature_labels(labels, weights, device):
 ############################### generative models to use ###############################
 """ two types of generative models depending on the type of features in a given dataset """
 
+
 class Generative_Model_homogeneous_data(nn.Module):
 
-        def __init__(self, input_size, hidden_size_1, hidden_size_2, output_size, dataset):
-            super(Generative_Model_homogeneous_data, self).__init__()
+    def __init__(self, input_size, hidden_size_1, hidden_size_2, output_size, dataset):
+        super(Generative_Model_homogeneous_data, self).__init__()
 
-            self.input_size = input_size
-            self.hidden_size_1 = hidden_size_1
-            self.hidden_size_2 = hidden_size_2
-            self.output_size = output_size
+        self.input_size = input_size
+        self.hidden_size_1 = hidden_size_1
+        self.hidden_size_2 = hidden_size_2
+        self.output_size = output_size
 
-            self.fc1 = torch.nn.Linear(self.input_size, self.hidden_size_1)
-            self.bn1 = torch.nn.BatchNorm1d(self.hidden_size_1)
-            self.relu = torch.nn.ReLU()
-            self.sigmoid = torch.nn.Sigmoid()
-            self.fc2 = torch.nn.Linear(self.hidden_size_1, self.hidden_size_2)
-            self.bn2 = torch.nn.BatchNorm1d(self.hidden_size_2)
-            self.fc3 = torch.nn.Linear(self.hidden_size_2, self.output_size)
+        self.fc1 = torch.nn.Linear(self.input_size, self.hidden_size_1)
+        self.bn1 = torch.nn.BatchNorm1d(self.hidden_size_1)
+        self.relu = torch.nn.ReLU()
+        self.sigmoid = torch.nn.Sigmoid()
+        self.fc2 = torch.nn.Linear(self.hidden_size_1, self.hidden_size_2)
+        self.bn2 = torch.nn.BatchNorm1d(self.hidden_size_2)
+        self.fc3 = torch.nn.Linear(self.hidden_size_2, self.output_size)
 
-            self.dataset = dataset
+        self.dataset = dataset
 
+    def forward(self, x):
+        hidden = self.fc1(x)
+        relu = self.relu(self.bn1(hidden))
+        output = self.fc2(relu)
+        output = self.relu(self.bn2(output))
+        output = self.fc3(output)
+        # output = self.sigmoid(output) # because we preprocess data such that each feature is [0,1]
 
-        def forward(self, x):
-            hidden = self.fc1(x)
-            relu = self.relu(self.bn1(hidden))
-            output = self.fc2(relu)
-            output = self.relu(self.bn2(output))
-            output = self.fc3(output)
-            # output = self.sigmoid(output) # because we preprocess data such that each feature is [0,1]
+        # if str(self.dataset) == 'epileptic':
+        #     output = self.sigmoid(output) # because we preprocess data such that each feature is [0,1]
+        # elif str(self.dataset) == 'isolet':
+        #     output = self.sigmoid(output)
 
-
-            # if str(self.dataset) == 'epileptic':
-            #     output = self.sigmoid(output) # because we preprocess data such that each feature is [0,1]
-            # elif str(self.dataset) == 'isolet':
-            #     output = self.sigmoid(output)
-
-            return output
+        return output
 
 
 class Generative_Model_heterogeneous_data(nn.Module):
 
-            def __init__(self, input_size, hidden_size_1, hidden_size_2, output_size, num_categorical_inputs, num_numerical_inputs):
-                super(Generative_Model_heterogeneous_data, self).__init__()
+    def __init__(self, input_size, hidden_size_1, hidden_size_2, output_size, num_categorical_inputs,
+                 num_numerical_inputs):
+        super(Generative_Model_heterogeneous_data, self).__init__()
 
-                self.input_size = input_size
-                self.hidden_size_1 = hidden_size_1
-                self.hidden_size_2 = hidden_size_2
-                self.output_size = output_size
-                self.num_numerical_inputs = num_numerical_inputs
-                self.num_categorical_inputs = num_categorical_inputs
+        self.input_size = input_size
+        self.hidden_size_1 = hidden_size_1
+        self.hidden_size_2 = hidden_size_2
+        self.output_size = output_size
+        self.num_numerical_inputs = num_numerical_inputs
+        self.num_categorical_inputs = num_categorical_inputs
 
-                self.fc1 = torch.nn.Linear(self.input_size, self.hidden_size_1)
-                self.bn1 = torch.nn.BatchNorm1d(self.hidden_size_1)
-                self.relu = torch.nn.ReLU()
-                self.fc2 = torch.nn.Linear(self.hidden_size_1, self.hidden_size_2)
-                self.bn2 = torch.nn.BatchNorm1d(self.hidden_size_2)
-                self.fc3 = torch.nn.Linear(self.hidden_size_2, self.output_size)
-                self.sigmoid = torch.nn.Sigmoid()
+        self.fc1 = torch.nn.Linear(self.input_size, self.hidden_size_1)
+        self.bn1 = torch.nn.BatchNorm1d(self.hidden_size_1)
+        self.relu = torch.nn.ReLU()
+        self.fc2 = torch.nn.Linear(self.hidden_size_1, self.hidden_size_2)
+        self.bn2 = torch.nn.BatchNorm1d(self.hidden_size_2)
+        self.fc3 = torch.nn.Linear(self.hidden_size_2, self.output_size)
+        self.sigmoid = torch.nn.Sigmoid()
 
-            def forward(self, x):
-                hidden = self.fc1(x)
-                relu = self.relu(self.bn1(hidden))
-                output = self.fc2(relu)
-                output = self.relu(self.bn2(output))
-                output = self.fc3(output)
+    def forward(self, x):
+        hidden = self.fc1(x)
+        relu = self.relu(self.bn1(hidden))
+        output = self.fc2(relu)
+        output = self.relu(self.bn2(output))
+        output = self.fc3(output)
 
-                output_numerical = self.relu(output[:, 0:self.num_numerical_inputs])  # these numerical values are non-negative
-                # output_numerical = self.sigmoid(output_numerical) # because we preprocess data such that each feature is [0,1]
-                output_categorical = self.sigmoid(output[:, self.num_numerical_inputs:])
-                output_combined = torch.cat((output_numerical, output_categorical), 1)
+        output_numerical = self.relu(output[:, 0:self.num_numerical_inputs])  # these numerical values are non-negative
+        # output_numerical = self.sigmoid(output_numerical) # because we preprocess data such that each feature is [0,1]
+        output_categorical = self.sigmoid(output[:, self.num_numerical_inputs:])
+        output_combined = torch.cat((output_numerical, output_categorical), 1)
 
-                return output_combined
+        return output_combined
+
 
 ############################### end of generative models ###############################
-
 
 
 def undersample(raw_input_features, raw_labels, undersampled_rate):
@@ -301,9 +288,8 @@ def undersample(raw_input_features, raw_labels, undersampled_rate):
 
 
 def data_loading(dataset, undersampled_rate=1, seed_number=0):
-
     ###
-   if dataset == 'adult':
+    if dataset == 'adult':
         order_hermite_arg = [100]  # HP order for sum kernel
         batch_rate = [0.1]
         how_many_epochs_arg = [20]  # 100
@@ -313,7 +299,7 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
         prod_dimension_arg = [5]  # subsampled input dimension for product kernel
         gamma_arg = [0.1]
 
-   elif dataset == 'census':
+    elif dataset == 'census':
         order_hermite_arg = [100]  # HP order for sum kernel
         batch_rate = [0.4]
         how_many_epochs_arg = [50]
@@ -323,7 +309,7 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
         prod_dimension_arg = [5]  # subsampled input dimension for product kernel
         gamma_arg = [0.1]
 
-   elif dataset == 'cervical':
+    elif dataset == 'cervical':
         order_hermite_arg = [20]  # HP order for sum kernel
         batch_rate = [0.1]
         how_many_epochs_arg = [20]
@@ -333,7 +319,7 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
         prod_dimension_arg = [5]  # subsampled input dimension for product kernel
         gamma_arg = [1.0]
 
-   elif dataset == 'credit':
+    elif dataset == 'credit':
         order_hermite_arg = [20]  # HP order for sum kernel
         batch_rate = [0.5]
         how_many_epochs_arg = [200]
@@ -343,7 +329,7 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
         prod_dimension_arg = [5]  # subsampled input dimension for product kernel
         gamma_arg = [1e-5]
 
-   elif dataset == 'covtype':
+    elif dataset == 'covtype':
         order_hermite_arg = [10]  # HP order for sum kernel
         batch_rate = [0.01]
         how_many_epochs_arg = [200]
@@ -353,7 +339,7 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
         prod_dimension_arg = [2]  # subsampled input dimension for product kernel
         gamma_arg = [1]
 
-   elif dataset == 'epileptic':
+    elif dataset == 'epileptic':
         order_hermite_arg = [10]  # HP order for sum kernel
         batch_rate = [0.1]
         how_many_epochs_arg = [20]
@@ -363,7 +349,7 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
         prod_dimension_arg = [7]  # subsampled input dimension for product kernel
         gamma_arg = [0.1]
 
-   elif dataset == 'isolet':
+    elif dataset == 'isolet':
         order_hermite_arg = [10]  # HP order for sum kernel
         batch_rate = [0.5]
         how_many_epochs_arg = [20]
@@ -373,7 +359,7 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
         prod_dimension_arg = [5]  # subsampled input dimension for product kernel
         gamma_arg = [1]
 
-   elif dataset == 'intrusion':
+    elif dataset == 'intrusion':
         order_hermite_arg = [7]  # HP order for sum kernel
         batch_rate = [0.01]
         how_many_epochs_arg = [200]
@@ -383,14 +369,13 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
         prod_dimension_arg = [5]  # subsampled input dimension for product kernel
         gamma_arg = [1]
 
-   single_undersample=1
-   if single_undersample:
+    single_undersample = 1
+    if single_undersample:
         undersampled_rate = undersampled_rate[0]
 
+    if dataset == 'epileptic':
 
-   if dataset=='epileptic':
-
-        print("epileptic seizure recognition dataset") # this is homogeneous
+        print("epileptic seizure recognition dataset")  # this is homogeneous
 
         data = pd.read_csv("../../data/tab_data/Epileptic/data.csv")
 
@@ -401,19 +386,19 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
         data_target = data[target]
 
         for i, row in data_target.iterrows():
-          if data_target.at[i,'y']!=1:
-            data_target.at[i,'y'] = 0
+            if data_target.at[i, 'y'] != 1:
+                data_target.at[i, 'y'] = 0
 
         ###################
 
-        raw_labels=np.array(data_target)
-        raw_input_features=np.array(data_features)
+        raw_labels = np.array(data_target)
+        raw_input_features = np.array(data_features)
 
         idx_negative_label = raw_labels == 0
         idx_positive_label = raw_labels == 1
 
-        idx_negative_label=idx_negative_label.squeeze()
-        idx_positive_label=idx_positive_label.squeeze()
+        idx_negative_label = idx_negative_label.squeeze()
+        idx_positive_label = idx_positive_label.squeeze()
 
         pos_samps_input = raw_input_features[idx_positive_label, :]
         pos_samps_label = raw_labels[idx_positive_label]
@@ -431,18 +416,19 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
         feature_selected = np.concatenate((pos_samps_input, neg_samps_input))
         label_selected = np.concatenate((pos_samps_label, neg_samps_label))
 
-        label_selected=label_selected.squeeze()
+        label_selected = label_selected.squeeze()
 
-        X_train, X_test, y_train, y_test = train_test_split(feature_selected, label_selected, train_size=0.70, test_size=0.30, random_state=seed_number)
+        X_train, X_test, y_train, y_test = train_test_split(feature_selected, label_selected, train_size=0.70,
+                                                            test_size=0.30, random_state=seed_number)
 
         n_classes = 2
 
         num_numerical_inputs = []
         num_categorical_inputs = []
 
-   elif dataset=="credit":
+    elif dataset == "credit":
 
-        print("Creditcard fraud detection dataset") # this is homogeneous
+        print("Creditcard fraud detection dataset")  # this is homogeneous
 
         data = pd.read_csv("../../data/tab_data/Kaggle_Credit/creditcard.csv")
 
@@ -482,9 +468,9 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
         num_numerical_inputs = []
         num_categorical_inputs = []
 
-   elif dataset=='census':
+    elif dataset == 'census':
 
-        print("census dataset") # this is heterogenous
+        print("census dataset")  # this is heterogenous
 
         data = np.load("../../data/tab_data/real/census/train.npy")
 
@@ -513,7 +499,7 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
 
         # take random 10 percent of the negative labelled data
         in_keep = np.random.permutation(np.sum(idx_negative_label))
-        under_sampling_rate = undersampled_rate #0.4
+        under_sampling_rate = undersampled_rate  # 0.4
         in_keep = in_keep[0:np.int(np.sum(idx_negative_label) * under_sampling_rate)]
 
         neg_samps_input = neg_samps_input[in_keep, :]
@@ -526,9 +512,9 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
                                                             test_size=0.20, random_state=seed_number)
 
 
-   elif dataset=='cervical':
+    elif dataset == 'cervical':
 
-        print("dataset is", dataset) # this is heterogenous
+        print("dataset is", dataset)  # this is heterogenous
 
         df = pd.read_csv("../../data/tab_data/Cervical/kag_risk_factors_cervical_cancer.csv")
 
@@ -536,7 +522,7 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
         df_nan = df.replace("?", np.float64(np.nan))
         df_nan.head()
 
-        df1=df.apply(pd.to_numeric, errors="coerce")
+        df1 = df.apply(pd.to_numeric, errors="coerce")
 
         df1.columns = df1.columns.str.replace(' ', '')  # deleting spaces for ease of use
 
@@ -546,12 +532,12 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
         numerical_df = ['Age', 'Numberofsexualpartners', 'Firstsexualintercourse', 'Numofpregnancies', 'Smokes(years)',
                         'Smokes(packs/year)', 'HormonalContraceptives(years)', 'IUD(years)', 'STDs(number)',
                         'STDs:Numberofdiagnosis',
-                        'STDs:Timesincefirstdiagnosis', 'STDs:Timesincelastdiagnosis'] #12
+                        'STDs:Timesincefirstdiagnosis', 'STDs:Timesincelastdiagnosis']  # 12
         categorical_df = ['Smokes', 'HormonalContraceptives', 'IUD', 'STDs', 'STDs:condylomatosis',
                           'STDs:vulvo-perinealcondylomatosis', 'STDs:syphilis', 'STDs:pelvicinflammatorydisease',
                           'STDs:genitalherpes', 'STDs:AIDS', 'STDs:cervicalcondylomatosis',
                           'STDs:molluscumcontagiosum', 'STDs:HIV', 'STDs:HepatitisB', 'STDs:HPV',
-                          'Dx:Cancer', 'Dx:CIN', 'Dx:HPV', 'Dx', 'Hinselmann', 'Schiller', 'Citology', 'Biopsy'] #23
+                          'Dx:Cancer', 'Dx:CIN', 'Dx:HPV', 'Dx', 'Hinselmann', 'Schiller', 'Citology', 'Biopsy']  # 23
 
         feature_names = numerical_df + categorical_df[:-1]
         num_numerical_inputs = len(numerical_df)
@@ -563,7 +549,6 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
 
         for feature in categorical_df:
             df[feature] = df[feature].fillna(0.0)
-
 
         target = df['Biopsy']
         inputs = df[feature_names]
@@ -587,7 +572,7 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
 
         # take random 10 percent of the negative labelled data
         in_keep = np.random.permutation(np.sum(idx_negative_label))
-        under_sampling_rate = undersampled_rate #0.5
+        under_sampling_rate = undersampled_rate  # 0.5
         in_keep = in_keep[0:np.int(np.sum(idx_negative_label) * under_sampling_rate)]
 
         neg_samps_input = neg_samps_input[in_keep, :]
@@ -599,9 +584,9 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
         X_train, X_test, y_train, y_test = train_test_split(feature_selected, label_selected, train_size=0.80,
                                                             test_size=0.20, random_state=seed_number)
 
-   elif dataset=='adult':
+    elif dataset == 'adult':
 
-        print("dataset is", dataset) # this is heterogenous
+        print("dataset is", dataset)  # this is heterogenous
 
         # metadata = load_dataset('adult')
         # from sdgym.datasets import load_tables
@@ -627,7 +612,6 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
         categorical_columns = [1, 3, 5, 6, 7, 8, 9, 13]
         ordinal_columns = []
 
-
         """ some specifics on this dataset """
         numerical_columns = list(set(np.arange(x_tot[:, :-1].shape[1])) - set(categorical_columns + ordinal_columns))
         n_classes = 2
@@ -642,12 +626,12 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
         inputs = x_tot
         target = y_tot
 
+        inputs, target = undersample(inputs, target, undersampled_rate)  # only first
 
-        inputs, target = undersample(inputs, target, undersampled_rate) #only first
+        X_train, X_test, y_train, y_test = train_test_split(inputs, target, train_size=0.90, test_size=0.10,
+                                                            random_state=seed_number)
 
-        X_train, X_test, y_train, y_test = train_test_split(inputs, target, train_size=0.90, test_size=0.10, random_state=seed_number)
-
-   elif dataset=='isolet':
+    elif dataset == 'isolet':
 
         print("isolet dataset")
 
@@ -691,14 +675,15 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
 
         label_selected = label_selected.squeeze()
 
-        X_train, X_test, y_train, y_test = train_test_split(feature_selected, label_selected, train_size=0.70, test_size=0.30,
+        X_train, X_test, y_train, y_test = train_test_split(feature_selected, label_selected, train_size=0.70,
+                                                            test_size=0.30,
                                                             random_state=seed_number)
         n_classes = 2
         num_numerical_inputs = []
         num_categorical_inputs = []
 
 
-   elif dataset=='intrusion':
+    elif dataset == 'intrusion':
 
         print("dataset is", dataset)
 
@@ -709,13 +694,14 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
         data = np.concatenate((original_train_data, original_test_data))
 
         """ some specifics on this dataset """
-        n_classes = 5 # removed to 5
+        n_classes = 5  # removed to 5
 
         """ some changes we make in the type of features for applying to our model """
         categorical_columns_binary = [6, 11, 13, 20]  # these are binary categorical columns
         the_rest_columns = list(set(np.arange(data[:, :-1].shape[1])) - set(categorical_columns_binary))
 
-        num_numerical_inputs = len(the_rest_columns)  # 10. Separately from the numerical ones, we compute the length-scale for the rest columns
+        num_numerical_inputs = len(
+            the_rest_columns)  # 10. Separately from the numerical ones, we compute the length-scale for the rest columns
         num_categorical_inputs = len(categorical_columns_binary)
 
         raw_labels = data[:, -1]
@@ -732,7 +718,7 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
         neg_samps_label = raw_labels[idx_negative_label]
 
         in_keep = np.random.permutation(np.sum(idx_negative_label))
-        under_sampling_rate = undersampled_rate#0.3
+        under_sampling_rate = undersampled_rate  # 0.3
         in_keep = in_keep[0:np.int(np.sum(idx_negative_label) * under_sampling_rate)]
 
         neg_samps_input = neg_samps_input[in_keep, :]
@@ -741,11 +727,12 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
         feature_selected = np.concatenate((pos_samps_input, neg_samps_input))
         label_selected = np.concatenate((pos_samps_label, neg_samps_label))
 
-        X_train, X_test, y_train, y_test = train_test_split(feature_selected, label_selected, train_size=0.70,test_size=0.30,                         random_state=seed_number)
+        X_train, X_test, y_train, y_test = train_test_split(feature_selected, label_selected, train_size=0.70,
+                                                            test_size=0.30, random_state=seed_number)
 
-        dummy=1
+        dummy = 1
 
-   elif dataset=='covtype':
+    elif dataset == 'covtype':
 
         print("dataset is", dataset)
 
@@ -806,20 +793,19 @@ def data_loading(dataset, undersampled_rate=1, seed_number=0):
         neg_samps_input = neg_samps_input[in_keep, :]
         neg_samps_label = neg_samps_label[in_keep]
 
-
         feature_selected = np.concatenate((pos_samps_input, neg_samps_input))
         label_selected = np.concatenate((pos_samps_label, neg_samps_label))
 
         ###############3
 
-        X_train, X_test, y_train, y_test = train_test_split(feature_selected, label_selected, train_size=0.70, test_size=0.30,
+        X_train, X_test, y_train, y_test = train_test_split(feature_selected, label_selected, train_size=0.70,
+                                                            test_size=0.30,
                                                             random_state=seed_number)
 
-   return X_train, X_test, y_train, y_test, n_classes, num_numerical_inputs, num_categorical_inputs
+    return X_train, X_test, y_train, y_test, n_classes, num_numerical_inputs, num_categorical_inputs
 
 
 def test_models(X_tr, y_tr, X_te, y_te, n_classes, datasettype, classifiers, data_name):
-
     print("\n", datasettype, "data\n")
 
     roc_arr = []
@@ -828,20 +814,19 @@ def test_models(X_tr, y_tr, X_te, y_te, n_classes, datasettype, classifiers, dat
 
     models = np.array(
         [
-         LogisticRegression(),
-         GaussianNB(),
-         BernoulliNB(),
-         SVC(),
-         DecisionTreeClassifier(),
-         LinearDiscriminantAnalysis(),
-         AdaBoostClassifier(),
-         BaggingClassifier(),
-         RandomForestClassifier(),
-         GradientBoostingClassifier(subsample=0.1, n_estimators=50),
-         MLPClassifier(),
-        xgboost.XGBClassifier(disable_default_eval_metric=1, learning_rate=0.5)
+            LogisticRegression(),
+            GaussianNB(),
+            BernoulliNB(),
+            SVC(),
+            DecisionTreeClassifier(),
+            LinearDiscriminantAnalysis(),
+            AdaBoostClassifier(),
+            BaggingClassifier(),
+            RandomForestClassifier(),
+            GradientBoostingClassifier(subsample=0.1, n_estimators=50),
+            MLPClassifier(),
+            xgboost.XGBClassifier(disable_default_eval_metric=1, learning_rate=0.5)
         ])
-
 
     models_to_test = models[np.array(classifiers)]
 
@@ -898,7 +883,7 @@ def test_models(X_tr, y_tr, X_te, y_te, n_classes, datasettype, classifiers, dat
             elif str(model)[0:10] == 'GaussianNB':
                 print('training again')
 
-                model = GaussianNB(var_smoothing=1e-3, priors=(sum(y_tr)/len(y_tr),1-sum(y_tr)/len(y_tr)))
+                model = GaussianNB(var_smoothing=1e-3, priors=(sum(y_tr) / len(y_tr), 1 - sum(y_tr) / len(y_tr)))
                 model.fit(X_tr, y_tr)
                 pred = model.predict(X_te)  # test on real data
                 roc_temp1 = roc_auc_score(y_te, pred)
@@ -1028,7 +1013,6 @@ def test_models(X_tr, y_tr, X_te, y_te, n_classes, datasettype, classifiers, dat
                 roc_temp3 = roc_auc_score(y_te, pred)
                 prc_temp3 = average_precision_score(y_te, pred)
 
-
                 roc = max(roc, roc_temp1, roc_temp2, roc_temp3)
                 prc = max(prc, prc_temp1, prc_temp2, prc_temp3)
 
@@ -1146,7 +1130,7 @@ def test_models(X_tr, y_tr, X_te, y_te, n_classes, datasettype, classifiers, dat
             print("ROC on test %s data is %.3f" % (datasettype, roc))
             print("PRC on test %s data is %.3f" % (datasettype, prc))
 
-    else: # multiclass classification datasets
+    else:  # multiclass classification datasets
 
         for model in models_to_test:
 
@@ -1159,9 +1143,12 @@ def test_models(X_tr, y_tr, X_te, y_te, n_classes, datasettype, classifiers, dat
             f1score = f1_score(y_te, pred, average='weighted')
 
             if data_name == 'covtype':
-                prior_class = np.array([sum(y_tr==0), sum(y_tr==1), sum(y_tr==2), sum(y_tr==3), sum(y_tr==4), sum(y_tr==5), sum(y_tr==6)])/(y_tr.shape[0])
+                prior_class = np.array(
+                    [sum(y_tr == 0), sum(y_tr == 1), sum(y_tr == 2), sum(y_tr == 3), sum(y_tr == 4), sum(y_tr == 5),
+                     sum(y_tr == 6)]) / (y_tr.shape[0])
             elif data_name == 'intrusion':
-                prior_class = np.array([sum(y_tr==0), sum(y_tr==1), sum(y_tr==2), sum(y_tr==3), sum(y_tr==4)])/(y_tr.shape[0])
+                prior_class = np.array(
+                    [sum(y_tr == 0), sum(y_tr == 1), sum(y_tr == 2), sum(y_tr == 3), sum(y_tr == 4)]) / (y_tr.shape[0])
 
             if str(model)[0:11] == 'BernoulliNB':
 
@@ -1197,7 +1184,7 @@ def test_models(X_tr, y_tr, X_te, y_te, n_classes, datasettype, classifiers, dat
                 f1score5 = f1_score(y_te, pred, average='weighted')
 
                 print('training again')
-                model = BernoulliNB(class_prior=prior_class.squeeze(), binarize = np.mean(X_tr))
+                model = BernoulliNB(class_prior=prior_class.squeeze(), binarize=np.mean(X_tr))
                 model.fit(X_tr, y_tr)
                 pred = model.predict(X_te)  # test on real data
                 f1score6 = f1_score(y_te, pred, average='weighted')
@@ -1262,7 +1249,6 @@ def test_models(X_tr, y_tr, X_te, y_te, n_classes, datasettype, classifiers, dat
                 pred = model.predict(X_te)  # test on real data
                 f1score4 = f1_score(y_te, pred, average='weighted')
 
-
                 model = GaussianNB(var_smoothing=0.5, priors=prior_class)
                 model.fit(X_tr, y_tr)
                 pred = model.predict(X_te)  # test on real data
@@ -1308,9 +1294,8 @@ def test_models(X_tr, y_tr, X_te, y_te, n_classes, datasettype, classifiers, dat
                 pred = model.predict(X_te)  # test on real data
                 f1score13 = f1_score(y_te, pred, average='weighted')
 
-
-
-                f1score = max(f1score, f1score1, f1score2, f1score3, f1score4, f1score5, f1score6, f1score7, f1score8, f1score9, f1score10, f1score11,  f1score12, f1score13)
+                f1score = max(f1score, f1score1, f1score2, f1score3, f1score4, f1score5, f1score6, f1score7, f1score8,
+                              f1score9, f1score10, f1score11, f1score12, f1score13)
 
             elif str(model)[0:12] == 'RandomForest':
                 print('training again')
@@ -1367,7 +1352,7 @@ def test_models(X_tr, y_tr, X_te, y_te, n_classes, datasettype, classifiers, dat
                 # pred = model.predict(X_te)  # test on real data
                 # f1score4 = f1_score(y_te, pred, average='weighted')
 
-                #f1score = max(f1score, f1score1, f1score2, f1score3, f1score4)
+                # f1score = max(f1score, f1score1, f1score2, f1score3, f1score4)
                 f1score = max(f1score, f1score1, f1score2)
 
 
@@ -1435,14 +1420,14 @@ def test_models(X_tr, y_tr, X_te, y_te, n_classes, datasettype, classifiers, dat
                 print(f1score4)
 
                 print('training again')
-                model = LinearSVC(max_iter=10000, tol=1e-12, multi_class = 'crammer_singer')
+                model = LinearSVC(max_iter=10000, tol=1e-12, multi_class='crammer_singer')
                 model.fit(X_tr, y_tr)
                 pred = model.predict(X_te)  # test on real data
                 f1score4 = f1_score(y_te, pred, average='weighted')
                 print(f1score4)
 
                 print('training again')
-                model = LinearSVC(max_iter=10000, tol=1e-16, loss='hinge',multi_class = 'crammer_singer', C=0.1)
+                model = LinearSVC(max_iter=10000, tol=1e-16, loss='hinge', multi_class='crammer_singer', C=0.1)
                 model.fit(X_tr, y_tr)
                 pred = model.predict(X_te)  # test on real data
                 f1score5 = f1_score(y_te, pred, average='weighted')
@@ -1488,7 +1473,8 @@ def test_models(X_tr, y_tr, X_te, y_te, n_classes, datasettype, classifiers, dat
             elif str(model)[0:26] == 'LinearDiscriminantAnalysis':
 
                 print('test LDA with different hyperparameters')
-                model = LinearDiscriminantAnalysis(solver='eigen', tol=1e-12, shrinkage='auto', priors=prior_class.squeeze())
+                model = LinearDiscriminantAnalysis(solver='eigen', tol=1e-12, shrinkage='auto',
+                                                   priors=prior_class.squeeze())
                 model.fit(X_tr, y_tr)
                 pred = model.predict(X_te)  # test on real data
                 f1score1 = f1_score(y_te, pred, average='weighted')
@@ -1506,8 +1492,7 @@ def test_models(X_tr, y_tr, X_te, y_te, n_classes, datasettype, classifiers, dat
                 model = LinearDiscriminantAnalysis(solver='lsqr', tol=1e-12, shrinkage=0.9)
                 model.fit(X_tr, y_tr)
                 pred = model.predict(X_te)  # test on real data
-                f1score4= f1_score(y_te, pred, average='weighted')
-
+                f1score4 = f1_score(y_te, pred, average='weighted')
 
                 f1score = max(f1score, f1score1, f1score2, f1score3, f1score4)
 
@@ -1529,18 +1514,17 @@ def test_models(X_tr, y_tr, X_te, y_te, n_classes, datasettype, classifiers, dat
                 pred = model.predict(X_te)  # test on real data
                 f1score3 = f1_score(y_te, pred, average='weighted')
 
-                model = AdaBoostClassifier(n_estimators=100, learning_rate=5.0, random_state = 0)
+                model = AdaBoostClassifier(n_estimators=100, learning_rate=5.0, random_state=0)
                 model.fit(X_tr, y_tr)
                 pred = model.predict(X_te)  # test on real data
                 f1score4 = f1_score(y_te, pred, average='weighted')
 
-                model = AdaBoostClassifier(n_estimators=1000, learning_rate=5.0, random_state = 0)
+                model = AdaBoostClassifier(n_estimators=1000, learning_rate=5.0, random_state=0)
                 model.fit(X_tr, y_tr)
                 pred = model.predict(X_te)  # test on real data
                 f1score5 = f1_score(y_te, pred, average='weighted')
 
-
-                model = AdaBoostClassifier(n_estimators=1000, learning_rate=4.0, random_state = 0)
+                model = AdaBoostClassifier(n_estimators=1000, learning_rate=4.0, random_state=0)
                 model.fit(X_tr, y_tr)
                 pred = model.predict(X_te)  # test on real data
                 f1score6 = f1_score(y_te, pred, average='weighted')
@@ -1617,7 +1601,6 @@ def test_models(X_tr, y_tr, X_te, y_te, n_classes, datasettype, classifiers, dat
 
                 f1score = max(f1score, f1score1, f1score2, f1score3, f1score4)
 
-
             print("F1-score on test %s data is %.3f" % (datasettype, f1score))
             f1_arr.append(f1score)
 
@@ -1642,20 +1625,21 @@ def test_models(X_tr, y_tr, X_te, y_te, n_classes, datasettype, classifiers, dat
     return res1, res2
 
 
-
-
 def save_generated_samples(samples, args, path_gen_data):
     # path_gen_data = f"../data/generated/{args.dataset}"
     # os.makedirs(path_gen_data, exist_ok=True)
     if args.is_private:
-        np.save(os.path.join(path_gen_data, f"{args.data_name}_generated_privatized_{args.is_private}_eps_{args.epsilon}_epochs_{args.epochs}_order_{args.hermite_order}_samples_{samples.shape[0]}_features_{samples.shape[1]}"), samples.detach().cpu().numpy())
+        np.save(os.path.join(path_gen_data,
+                             f"{args.data_name}_generated_privatized_{args.is_private}_eps_{args.epsilon}_epochs_{args.epochs}_order_{args.hermite_order}_samples_{samples.shape[0]}_features_{samples.shape[1]}"),
+                samples.detach().cpu().numpy())
     else:
-        np.save(os.path.join(path_gen_data, f"{args.data_name}_generated_privatized_{args.is_private}_epochs_{args.epochs}_order_{args.hermite_order}_samples_{samples.shape[0]}_features_{samples.shape[1]}"), samples.detach().cpu().numpy())
+        np.save(os.path.join(path_gen_data,
+                             f"{args.data_name}_generated_privatized_{args.is_private}_epochs_{args.epochs}_order_{args.hermite_order}_samples_{samples.shape[0]}_features_{samples.shape[1]}"),
+                samples.detach().cpu().numpy())
     print(f"Generated data saved to {path_gen_data}")
 
 
 def heuristic_for_length_scale(X_train, input_dim):
-
     sigma_array = np.zeros(input_dim)
     for i in np.arange(0, input_dim):
         med = meddistance(np.expand_dims(X_train[:, i], 1), subsample=500)
@@ -1665,50 +1649,50 @@ def heuristic_for_length_scale(X_train, input_dim):
 
 
 def meddistance(x, subsample=None, mean_on_fail=True):
-  """
-  Compute the median of pairwise distances (not distance squared) of points
-  in the matrix.  Useful as a heuristic for setting Gaussian kernel's width.
+    """
+    Compute the median of pairwise distances (not distance squared) of points
+    in the matrix.  Useful as a heuristic for setting Gaussian kernel's width.
 
-  Parameters
-  ----------
-  x : n x d numpy array
-  mean_on_fail: True/False. If True, use the mean when the median distance is 0.
-      This can happen especially, when the data are discrete e.g., 0/1, and
-      there are more slightly more 0 than 1. In this case, the m
+    Parameters
+    ----------
+    x : n x d numpy array
+    mean_on_fail: True/False. If True, use the mean when the median distance is 0.
+        This can happen especially, when the data are discrete e.g., 0/1, and
+        there are more slightly more 0 than 1. In this case, the m
 
-  Return
-  ------
-  median distance
-  """
-  if subsample is None:
-    d = dist_matrix(x, x)
-    itri = np.tril_indices(d.shape[0], -1)
-    tri = d[itri]
-    med = np.median(tri)
-    if med <= 0:
-      # use the mean
-      return np.mean(tri)
-    return med
+    Return
+    ------
+    median distance
+    """
+    if subsample is None:
+        d = dist_matrix(x, x)
+        itri = np.tril_indices(d.shape[0], -1)
+        tri = d[itri]
+        med = np.median(tri)
+        if med <= 0:
+            # use the mean
+            return np.mean(tri)
+        return med
 
-  else:
-    assert subsample > 0
-    rand_state = np.random.get_state()
-    np.random.seed(9827)
-    n = x.shape[0]
-    ind = np.random.choice(n, min(subsample, n), replace=False)
-    np.random.set_state(rand_state)
-    # recursion just one
-    return meddistance(x[ind, :], None, mean_on_fail)
+    else:
+        assert subsample > 0
+        rand_state = np.random.get_state()
+        np.random.seed(9827)
+        n = x.shape[0]
+        ind = np.random.choice(n, min(subsample, n), replace=False)
+        np.random.set_state(rand_state)
+        # recursion just one
+        return meddistance(x[ind, :], None, mean_on_fail)
 
 
 def dist_matrix(x, y):
-  """
-  Construct a pairwise Euclidean distance matrix of size X.shape[0] x Y.shape[0]
-  """
-  sx = np.sum(x ** 2, 1)
-  sy = np.sum(y ** 2, 1)
-  d2 = sx[:, np.newaxis] - 2.0 * x.dot(y.T) + sy[np.newaxis, :]
-  # to prevent numerical errors from taking sqrt of negative numbers
-  d2[d2 < 0] = 0
-  d = np.sqrt(d2)
-  return d
+    """
+    Construct a pairwise Euclidean distance matrix of size X.shape[0] x Y.shape[0]
+    """
+    sx = np.sum(x ** 2, 1)
+    sy = np.sum(y ** 2, 1)
+    d2 = sx[:, np.newaxis] - 2.0 * x.dot(y.T) + sy[np.newaxis, :]
+    # to prevent numerical errors from taking sqrt of negative numbers
+    d2[d2 < 0] = 0
+    d = np.sqrt(d2)
+    return d
