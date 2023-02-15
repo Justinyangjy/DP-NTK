@@ -9,7 +9,9 @@ The script `all_aux_tab.py` is taken from the repository of [DP-HP](https://gith
 The script `fid_eval.py` (named `eval_fid.py` originally) is partially taken from the repository of [DP-MEPF](https://anonymous.4open.science/r/dp-gfmn/code/eval_fid.py).
 
 ## data download
-In order to run celebA and tabular data, please download the data from [DP-HP data folder](https://github.com/ParkLabML/DP-HP/tree/master/data) and place it into `DP-NTK/data/`
+In order to run tabular data experiments, please download the data from [DP-HP data folder](https://github.com/ParkLabML/DP-HP/tree/master/data) and place it into `DP-NTK/data/`
+
+For the CelebA experiments, please download the [image_align_celeba](https://www.kaggle.com/datasets/jessicali9530/celeba-dataset?select=img_align_celeba) file from Kaggle and unzip it directly into `DP-NTK/data/`
 
 
 ## code structure
