@@ -40,6 +40,21 @@ For the CelebA experiments, please download the [image_align_celeba](https://www
 - `--ntk-width`: first FC layer width of the specified NTK structure.
 - `--ntk_width-2`: second FC layer width of the specified NTK structure.
 - `--tgt-eps`: the desired DP constant epsilon. the necessary noise is computed and added to mean.
+- `--tab_classifiers`: the tabular classifiers (named 0-11 for our parameters) considered are as follows:
+  - `LogisticRegression` from `sklearn.linear_model`.
+  - `GaussianNB` from `sklearn.naive_bayes`.
+  - `BernoulliNB` from `sklearn.naive_bayes`.
+  - `SVC` from `sklearn.svm`.
+  - `DecisionTreeClassifier` from `sklearn.tree`.
+  - `LinearDiscriminantAnalysis` from `sklearn.discriminant_analysis`.
+  - `AdaBoostClassifier` from `sklearn.ensemble`.
+  - `BaggingClassifier` from `sklearn.ensemble`.
+  - `RandomForestClassifier` from `sklearn.ensemble`.
+  - `GradientBoostingClassifier` from `sklearn.ensemble`.
+  - `MLPClassifier` from `sklearn.neural_network`.
+  - `XGBClassifier` from `xgboost`.
+  Please put the number sequence of the preferred methods behind `--tab_classifiers` such as `--tab_classifiers 3 4`
+  for `BernoulliNB` and `SVC` method.
 
 ### 2) Run via Command line
 
