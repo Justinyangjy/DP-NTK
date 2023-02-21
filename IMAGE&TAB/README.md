@@ -54,7 +54,7 @@ For the CelebA experiments, please download the [image_align_celeba](https://www
   - `MLPClassifier` from `sklearn.neural_network`.
   - `XGBClassifier` from `xgboost`.
   Please put the number sequence of the preferred methods behind `--tab_classifiers` such as `--tab_classifiers 3 4`
-  for `BernoulliNB` and `SVC` method.
+  for `SVC` and `DecisionTreeClassifier` method.
 
 ### 2) Run via Command line
 
