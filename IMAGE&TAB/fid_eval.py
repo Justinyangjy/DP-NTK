@@ -23,7 +23,7 @@ def cifar10_stats(model, device, batch_size, workers, image_size=32, dataroot='.
 
 
 def store_data_stats(dataset_name, image_size, center_crop_size, dataroot, use_autoencoder):
-    log_dir = '../data'
+    log_dir = './data'
     device = pt.device("cuda")
     batch_size = 50
     workers = 1
@@ -43,7 +43,7 @@ def store_data_stats(dataset_name, image_size, center_crop_size, dataroot, use_a
 
 def get_fid_scores(synth_data_file, dataset_name, device, n_samples,
                    image_size, center_crop_size, use_autoencoder,
-                   base_data_dir='../data', batch_size=50):
+                   base_data_dir='./data', batch_size=50):
     real_data_stats_dir = os.path.join(base_data_dir, 'fid_stats')
     real_data_stats_file = os.path.join(real_data_stats_dir, dataset_name + '.npz')
     dims = 2048
