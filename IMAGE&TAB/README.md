@@ -78,21 +78,21 @@ accordingly.
 
 #### a) CelebA
 
-`python3 dp_ntk_one_class.py --data celeba --n_iter 2000 -lr 1e-2 -bs 125 -dcode 100 --model-ntk fc_1l --ntk-width 800`
+`python dp_ntk_one_class.py --data celeba --n_iter 20000 -lr 1e-2 -bs 1000 -dcode 141 --model-ntk fc_2l --ntk-width 3000 --ntk-width-2 200 --epsilon 10`
 
 #### b) CIFAR-10
 
-`python3 dp_ntk.py --data cifar10 --n_iter 2000 -lr 1e-2 -bs 1500 -dcode 100 --model-ntk cnn_2l --ntk-width 32 --ntk-width-2 256`
+`python dp_ntk_one_class.py --data cifar10 --n_iter 40000 -lr 1e-2 -bs 1000 -dcode 201 --model-ntk fc_2l --ntk-width 3000 --ntk-width-2 200 --epsilon 10`
 
 #### c) Tabular
 
 The datasets we consider are "adult", "census", "cervical", "credit", "isolet", "epileptic", "intrusion" and "covtype".
 
-`python3 dp_ntk.py --data adult --n_iter 50 -lr 1e-2 -bs 200 -dcode 11 --model-ntk cnn_2l --ntk-width 30 --ntk-width-2 200 --tgt-eps 1`
+`python dp_ntk.py --data adult --n_iter 50 -lr 1e-2 -bs 200 -dcode 11 --model-ntk cnn_2l --ntk-width 30 --ntk-width-2 200 --tgt-eps 1`
 
 #### d) CIFAR-10 one class
 
-`python3 dp_ntk_one_class.py --data cifar10 --n_iter 2000 -lr 1e-2 -bs 1500 -dcode 100 --model-ntk cnn_2l --ntk-width 32 --ntk-width-2 256`
+`python dp_ntk_one_class.py --data cifar10 --n_iter 2000 -lr 1e-2 -bs 1500 -dcode 100 --model-ntk cnn_2l --ntk-width 32 --ntk-width-2 256`
 
 ### Full hyperparameter table
 Below is the full hyperparameter table used to report the numbers in the paper.
@@ -101,7 +101,7 @@ The ntk width specifies the width of each layer in the NTK NN, seperated by '_'
 | dataset   | iter  | d_code | ntk width | batch | lr   | eps  | architecture |
 |-----------|-------|--------|-----------|-------|------|------|--------------|
 | celeba    | 20000 | 141    | 3000_200  | 1000  | 0.01 | 10   | fc_2l        |
-| cifar10   | 40000 | 201    | 3000_200  | 1000  | 0.01 | 10 1 | fc_2l        |
+| cifar10   | 40000 | 201    | 3000_200  | 1000  | 0.01 | 10   | fc_2l        |
 | cifar10   | 20000 | 31     | 800_1000  | 200   | 0.01 | None | fc_2l        |
 | adult     | 50    | 11     | 30_200    | 200   | 0.01 | 1    | cnn_2l       |
 | census    | 2000  | 21     | 30_20     | 200   | 0.01 | 1    | cnn_2l       |

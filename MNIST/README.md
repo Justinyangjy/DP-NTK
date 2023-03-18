@@ -32,17 +32,17 @@ Below we only list one non-private and one private run for each dataset. The oth
 #### a) MNIST
 
 non-DP
-`python3 dp_ntk.py  --data dmnist --n_iter 2000 -lr 1e-2 -bs 5000 --ntk-width 800 --seed 1`
+`python dp_ntk.py  --data dmnist --n_iter 2000 -lr 1e-2 -bs 5000 --ntk-width 800 --seed 1`
 
 DP
-`python3 dp_ntk.py  --data dmnist --n_iter 2000 -lr 1e-2 -bs 5000 --ntk-width 800 --seed 1 --tgt-eps 10`
+`python dp_ntk.py  --data dmnist --n_iter 2000 -lr 1e-2 -bs 5000 --ntk-width 800 --seed 1 --tgt-eps 10`
 
 
 
 #### b) FashionMNIST
 
 non-DP
-`python3 dp_ntk.py  --data fmnist --n_iter 2000 -lr 1e-2 -bs 5000 --ntk-width 800 --seed 1`
+`python dp_ntk.py  --data fmnist --n_iter 2000 -lr 1e-2 -bs 5000 --ntk-width 800 --seed 1`
 
 DP
-`python3 dp_ntk.py  --data fmnist --n_iter 2000 -lr 1e-2 -bs 5000 --ntk-width 800 --seed 1 --tgt-eps 10`
+`python dp_ntk.py  --data fmnist --n_iter 2000 -lr 1e-2 -bs 5000 --ntk-width 800 --seed 1 --tgt-eps 10`
