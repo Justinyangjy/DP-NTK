@@ -78,11 +78,11 @@ accordingly.
 
 #### a) CelebA
 
-`python dp_ntk_one_class.py --data celeba --n_iter 20000 -lr 1e-2 -bs 1000 -dcode 141 --model-ntk fc_2l --ntk-width 3000 --ntk-width-2 200 --epsilon 10`
+`python dp_ntk_one_class.py --data celeba --n_iter 20000 -lr 1e-2 -bs 1000 -dcode 141 --model-ntk fc_2l --ntk-width 3000 --ntk-width-2 200 --tgt-eps 10`
 
 #### b) CIFAR-10
 
-`python dp_ntk_one_class.py --data cifar10 --n_iter 40000 -lr 1e-2 -bs 1000 -dcode 201 --model-ntk fc_2l --ntk-width 3000 --ntk-width-2 200 --epsilon 10`
+`python dp_ntk_one_class.py --data cifar10 --n_iter 40000 -lr 1e-2 -bs 1000 -dcode 201 --model-ntk fc_2l --ntk-width 3000 --ntk-width-2 200 --tgt-eps 10`
 
 #### c) Tabular
 
