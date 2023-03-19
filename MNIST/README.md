@@ -21,7 +21,7 @@ the first two functions of `dp_ntk_gen.py` are taken from the repository of [DP-
 
 ### 1) Notable Flags:
 - `--seed`: value of random seed to use. we chose 1, 2, 3, 4 and 5. 
-- `--tgt-eps`: the desired DP constant epsilon. the necessary noise is computed and added to mean
+- `--tgt-eps`: the desired DP constant epsilon. the necessary noise is computed and added to mean. **Default is non-DP, so for non-DP cases don't use this flag**
 - `--ntk-width`: width of the FC NTK structure.
 
 ### 2) Run via Command Line

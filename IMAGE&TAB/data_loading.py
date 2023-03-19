@@ -30,9 +30,9 @@ def load_dataset(dataset_name, image_size, center_crop_size, dataroot, use_autoe
                                     ])
 
         # folder dataset
-        print(socket.gethostname())
-        path_celeba = os.path.join(dataroot, 'img_align_celeba'),
-        dataset = dset.ImageFolder(root=path_celeba, transform=transforms.Compose(transformations))
+        # path_celeba = os.path.join(dataroot, 'img_align_celeba')
+        # print(path_celeba)
+        dataset = dset.ImageFolder(root=os.path.join(dataroot, 'img_align_celeba'), transform=transforms.Compose(transformations))
 
 
     elif dataset_name == 'lsun':

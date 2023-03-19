@@ -54,7 +54,7 @@ Kaggle and unzip it directly into `./data/`
 - `--model-ntk`: here the ntk models considered are `fc_1l`, `fc_2l`, `cnn_1l` and `cnn_2l`.
 - `--ntk-width`: first FC layer width of the specified NTK structure.
 - `--ntk_width-2`: second FC layer width of the specified NTK structure.
-- `--tgt-eps`: the desired DP constant epsilon. the necessary noise is computed and added to mean. `None` stands for no DP.
+- `--tgt-eps`: the desired DP constant epsilon. the necessary noise is computed and added to mean. **Default is non-DP, so for non-DP cases don't use this flag**. 
 - `--tab_classifiers`: the tabular classifiers (named 0-11 for our parameters) considered are as follows:
     - `LogisticRegression` from `sklearn.linear_model`.
     - `GaussianNB` from `sklearn.naive_bayes`.
