@@ -48,7 +48,7 @@ def calc_mean_emb1(model_ntk, ar, device):
 
     """ average by class count """
     mean_emb1 = pt.div(mean_emb1, n_data)
-    print("This is the shape for dp-mint mean_emb1: ", mean_emb1.shape)
+    print("This is the shape for dp-ntk mean_emb1: ", mean_emb1.shape)
 
     """ save mean_emb1 """
     print(ar.save_dir + f'mean_emb1_{d}_{ar.seed}.pth')

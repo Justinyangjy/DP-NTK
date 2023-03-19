@@ -80,7 +80,7 @@ def calc_mean_emb1(model_ntk, ar, device):
 
     """ average by class count """
     mean_emb1 = torch.div(mean_emb1, n_c)
-    print("This is the shape for dp-mint mean_emb1: ", mean_emb1.shape)
+    print("This is the shape for dp-ntk mean_emb1: ", mean_emb1.shape)
 
     """ save model for downstream task """
     torch.save(mean_emb1, ar.log_dir + 'mean_emb1_1_' + str(d) + '.pth')
