@@ -31,8 +31,9 @@ def get_args():
     parser.add_argument('--n_iter', type=int, default=2000)
     parser.add_argument('--lr', '-lr', type=float, default=1e-2, help='learning rate')
     parser.add_argument('--lr-decay', type=float, default=0.9, help='learning rate decay factor')
-    parser.add_argument('--scheduler-interval', type=int, default=1500,
+    parser.add_argument('--scheduler-interval', type=int, default=2001,
                         help='reduce lr after n steps')
+    parser.add_argument('--model-ntk', default="fc_1l")
 
     # MODEL DEFINITION
     parser.add_argument('--d-code', '-dcode', type=int, default=5, help='random code dimensionality')
@@ -78,7 +79,13 @@ def main():
     device = 'cuda' if pt.cuda.is_available() else 'cpu'
     print('device is', device)
 
-    model_ntk = NTK(input_size=input_dim, hidden_size_1=ar.ntk_width, output_size=n_classes)
+    if ar.model_ntk == 'fc_1l':
+        model_ntk = NTK(input_size=input_dim, hidden_size_1=ar.ntk_width, output_size=n_classes)
+    elif ar.model_ntk == 'lenet5':
+        print('using LeNet5')
+        model_ntk = LeNet5()
+    else:
+        model_ntk = LeNet5()
     model_ntk.to(device)
     model_ntk.eval()
 
