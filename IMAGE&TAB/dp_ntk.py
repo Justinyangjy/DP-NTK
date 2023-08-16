@@ -123,6 +123,10 @@ def main():
             model_ntk = CNTK_2L(ar.ntk_width, ar.ntk_width_2)
         else:
             model_ntk = CNTK_1D_1L(input_dim, ar.ntk_width, ar.ntk_width_2, output_size=n_classes)
+    elif ar.model_ntk == "vgg":
+        model_ntk = VGG9(num_classes=10)
+    else:
+        model_ntk = get_ffcv_model(num_class=10, device=device)
 
     model_ntk.to(device)
     model_ntk.eval()

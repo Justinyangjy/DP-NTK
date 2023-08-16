@@ -136,3 +136,86 @@ class NTK(nn.Module):
         # output = self.softmax(output)
 
         return output
+
+
+class Mul(torch.nn.Module):
+    def __init__(self, weight):
+        super(Mul, self).__init__()
+        self.weight = weight
+
+    def forward(self, x): return x * self.weight
+
+
+class Flatten(torch.nn.Module):
+    def forward(self, x): return x.view(x.size(0), -1)
+
+
+class Residual(torch.nn.Module):
+    def __init__(self, module):
+        super(Residual, self).__init__()
+        self.module = module
+
+    def forward(self, x): return x + self.module(x)
+
+
+def conv_bn(channels_in, channels_out, kernel_size=3, stride=1, padding=1, groups=1):
+    return torch.nn.Sequential(
+        torch.nn.Conv2d(channels_in, channels_out, kernel_size=kernel_size,
+                        stride=stride, padding=padding, groups=groups, bias=False),
+        torch.nn.BatchNorm2d(channels_out),
+        torch.nn.ReLU(inplace=True)
+    )
+
+
+def get_ffcv_model(device, num_class=1000):
+    model = torch.nn.Sequential(
+        conv_bn(3, 64, kernel_size=3, stride=1, padding=1),
+        conv_bn(64, 128, kernel_size=5, stride=2, padding=2),
+        Residual(torch.nn.Sequential(conv_bn(128, 128), conv_bn(128, 128))),
+        conv_bn(128, 256, kernel_size=3, stride=1, padding=1),
+        torch.nn.MaxPool2d(2),
+        Residual(torch.nn.Sequential(conv_bn(256, 256), conv_bn(256, 256))),
+        conv_bn(256, 128, kernel_size=3, stride=1, padding=0),
+        torch.nn.AdaptiveMaxPool2d((1, 1)),
+        Flatten(),
+        torch.nn.Linear(128, num_class, bias=False),
+        Mul(0.2)
+    )
+    model = model.to(memory_format=torch.channels_last).to(device)
+    return model
+
+
+class VGG9(nn.Module):
+    def __init__(self, num_classes=10):
+        super(VGG9, self).__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(128, 128, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(256, 256, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2)
+        )
+        self.classifier = nn.Sequential(
+            nn.Linear(256 * 2 * 2, 32),
+            nn.ReLU(inplace=True),
+            nn.Linear(32, 32),
+            nn.ReLU(inplace=True),
+            nn.Linear(32, num_classes)
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
