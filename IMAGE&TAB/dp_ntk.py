@@ -87,7 +87,7 @@ def main():
     """ load Cifar10 or Tabular data"""
     labels_distribution, test_data, y_test = None, None, None
     if ar.data == 'cifar10':
-        train_loader, n_classes = load_cifar10(image_size=32, dataroot=ar.log_dir, use_autoencoder=False,
+        train_loader, n_classes = load_cifar10(image_size=32, dataroot=ar.log_dir, use_autoencoder=True,
                                                batch_size=100, n_workers=2, labeled=True,
                                                test_set=False, scale_to_range=False)
         input_dim = 32 * 32 * 3

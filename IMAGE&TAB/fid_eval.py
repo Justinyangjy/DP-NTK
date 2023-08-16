@@ -50,7 +50,7 @@ def get_fid_scores(synth_data_file, dataset_name, device, n_samples,
 
     block_idx = InceptionV3.BLOCK_INDEX_BY_DIM[dims]
 
-    model = InceptionV3([block_idx]).to(device)
+    model = InceptionV3([block_idx], normalize_input=False).to(device)
 
     if not os.path.exists(real_data_stats_file):
         store_data_stats(dataset_name, image_size, center_crop_size, base_data_dir, use_autoencoder)
